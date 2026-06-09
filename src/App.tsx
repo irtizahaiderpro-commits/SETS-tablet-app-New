@@ -32,6 +32,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  defaultAerialHotspots,
+  type AerialHotspot,
+  type AerialHotspotStatus,
+} from "./data/aerialHotspots";
 
 type Screen =
   | "liveYard"
@@ -2015,25 +2020,14 @@ function CompactTankRecordsTable({ title, rows }: { title: string; rows: Compact
   );
 }
 
-type YardBayStatus =
-  | "available"
-  | "booked"
-  | "occupied"
-  | "steam"
-  | "ready"
-  | "issue";
+type YardBayStatus = AerialHotspotStatus;
 
 type YardBay = {
   id: string;
   plot: string;
   bayNumber: number;
   status: YardBayStatus;
-  hotspot: {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  };
+  hotspot: AerialHotspot;
   customer?: string;
   tankUnit?: string;
   jobNumber?: string;
@@ -2108,135 +2102,71 @@ const yardStatusMeta: Record<
   },
 };
 
-type HotspotGrid = {
-  left: number;
-  top: number;
-  columns: number;
-  cellWidth: number;
-  cellHeight: number;
-  gapX: number;
-  gapY: number;
-};
+const plotOrder: Array<AerialHotspot["plot"]> = ["A", "B", "C", "D", "E", "F"];
+const hotspotStorageKey = "sets-aerial-hotspots-v1";
 
-function createHotspots(count: number, grid: HotspotGrid) {
-  return Array.from({ length: count }, (_, index) => {
-    const column = index % grid.columns;
-    const row = Math.floor(index / grid.columns);
-    return {
-      left: grid.left + column * (grid.cellWidth + grid.gapX),
-      top: grid.top + row * (grid.cellHeight + grid.gapY),
-      width: grid.cellWidth,
-      height: grid.cellHeight,
-    };
-  });
+function clampPercent(value: number, min = 0, max = 100) {
+  return Math.min(max, Math.max(min, Number(value.toFixed(2))));
 }
 
-function createYardPlot(
-  id: string,
-  booked: number,
-  available: number,
-  hotspotGrid: HotspotGrid,
-): YardPlot {
-  const statusCycle: YardBayStatus[] = [
-    "booked",
-    "occupied",
-    "steam",
-    "occupied",
-    "ready",
-    "booked",
-    "occupied",
-    "issue",
-  ];
-  const bayStatuses = [
-    ...Array.from({ length: booked }, (_, index) => statusCycle[index % statusCycle.length]),
-    ...Array.from({ length: available }, () => "available" as YardBayStatus),
-  ];
-  const hotspots = createHotspots(bayStatuses.length, hotspotGrid);
+function normalizeHotspot(raw: AerialHotspot): AerialHotspot {
+  const widthPercent = clampPercent(raw.widthPercent, 0.4, 30);
+  const heightPercent = clampPercent(raw.heightPercent, 0.4, 30);
   return {
-    id,
-    booked,
-    available,
-    bays: bayStatuses.map((status, index) => ({
-      id: `${id}-${index + 1}`,
-      plot: id,
-      bayNumber: index + 1,
-      status,
-      hotspot: hotspots[index],
-      ...(status === "available"
-        ? {
-            currentTemperature: "Ambient",
-            readyForCollection: false,
-          }
-        : {
-            ...denHartoghBooking,
-            currentTemperature:
-              status === "steam"
-                ? "92\u00B0C and rising"
-                : status === "ready"
-                  ? "105\u00B0C target reached"
-                  : "Awaiting heat check",
-            readyForCollection: status === "ready",
-          }),
-    })),
+    ...raw,
+    xPercent: clampPercent(raw.xPercent, 0, 100 - widthPercent),
+    yPercent: clampPercent(raw.yPercent, 0, 100 - heightPercent),
+    widthPercent,
+    heightPercent,
   };
 }
 
-const liveYardPlots: YardPlot[] = [
-  createYardPlot("Plot A", 6, 2, {
-    left: 5.9,
-    top: 74.8,
-    columns: 2,
-    cellWidth: 2.8,
-    cellHeight: 2.05,
-    gapX: 0.9,
-    gapY: 1.0,
-  }),
-  createYardPlot("Plot B", 12, 4, {
-    left: 15.35,
-    top: 70.35,
-    columns: 4,
-    cellWidth: 2.15,
-    cellHeight: 3.2,
-    gapX: 0.85,
-    gapY: 0.9,
-  }),
-  createYardPlot("Plot C", 7, 2, {
-    left: 15.3,
-    top: 57.45,
-    columns: 3,
-    cellWidth: 1.55,
-    cellHeight: 2.65,
-    gapX: 0.7,
-    gapY: 0.9,
-  }),
-  createYardPlot("Plot D", 11, 4, {
-    left: 34.7,
-    top: 42.75,
-    columns: 6,
-    cellWidth: 4.2,
-    cellHeight: 2.05,
-    gapX: 0.55,
-    gapY: 1.0,
-  }),
-  createYardPlot("Plot E", 9, 5, {
-    left: 63.25,
-    top: 9.45,
-    columns: 2,
-    cellWidth: 1.35,
-    cellHeight: 3.05,
-    gapX: 0.9,
-    gapY: 1.0,
-  }),
-  createYardPlot("Plot F", 24, 11, {
-    left: 24.0,
-    top: 86.65,
-    columns: 9,
-    cellWidth: 3.45,
-    cellHeight: 1.8,
-    gapX: 0.65,
-    gapY: 0.75,
-  }),
-];
+function loadAerialHotspots() {
+  try {
+    const raw = localStorage.getItem(hotspotStorageKey);
+    if (!raw) return defaultAerialHotspots;
+    const parsed = JSON.parse(raw) as AerialHotspot[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return defaultAerialHotspots;
+    return parsed.map(normalizeHotspot);
+  } catch {
+    return defaultAerialHotspots;
+  }
+}
+
+function createYardPlots(hotspots: AerialHotspot[]): YardPlot[] {
+  return plotOrder.map((plot) => {
+    const plotHotspots = hotspots
+      .filter((hotspot) => hotspot.plot === plot)
+      .sort((a, b) => a.bay - b.bay);
+    return {
+      id: `Plot ${plot}`,
+      booked: plotHotspots.filter((hotspot) => hotspot.status !== "available").length,
+      available: plotHotspots.filter((hotspot) => hotspot.status === "available").length,
+      bays: plotHotspots.map((hotspot) => ({
+        id: hotspot.id,
+        plot: `Plot ${hotspot.plot}`,
+        bayNumber: hotspot.bay,
+        status: hotspot.status,
+        hotspot,
+        ...(hotspot.status === "available"
+          ? {
+              currentTemperature: "Ambient",
+              readyForCollection: false,
+            }
+          : {
+              ...denHartoghBooking,
+              currentTemperature:
+                hotspot.status === "steam"
+                  ? "92\u00B0C and rising"
+                  : hotspot.status === "ready"
+                    ? "105\u00B0C target reached"
+                    : "Awaiting heat check",
+              readyForCollection: hotspot.status === "ready",
+            }),
+      })),
+    };
+  });
+}
 
 const liveYardSummary = [
   { label: "Expected arrivals today", value: 18, icon: CalendarDays, tone: "blue" },
@@ -2284,24 +2214,89 @@ function countPlotStatuses(plot: YardPlot) {
 }
 
 function AerialMap({
+  plots,
   selectedBay,
   onSelectBay,
+  editMode,
+  onUpdateHotspot,
 }: {
+  plots: YardPlot[];
   selectedBay: YardBay;
   onSelectBay: (bayId: string) => void;
+  editMode: boolean;
+  onUpdateHotspot: (id: string, patch: Partial<AerialHotspot>) => void;
 }) {
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    mode: "move" | "resize";
+    startX: number;
+    startY: number;
+    start: AerialHotspot;
+  } | null>(null);
+
+  const beginEditGesture = (
+    event: React.PointerEvent<HTMLElement>,
+    bay: YardBay,
+    mode: "move" | "resize",
+  ) => {
+    if (!editMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectBay(bay.id);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      id: bay.id,
+      mode,
+      startX: event.clientX,
+      startY: event.clientY,
+      start: bay.hotspot,
+    };
+  };
+
+  const moveEditGesture = (event: React.PointerEvent<HTMLDivElement>) => {
+    const active = dragRef.current;
+    const map = mapRef.current;
+    if (!active || !map) return;
+    const rect = map.getBoundingClientRect();
+    const deltaX = ((event.clientX - active.startX) / rect.width) * 100;
+    const deltaY = ((event.clientY - active.startY) / rect.height) * 100;
+    if (active.mode === "move") {
+      onUpdateHotspot(active.id, {
+        xPercent: active.start.xPercent + deltaX,
+        yPercent: active.start.yPercent + deltaY,
+      });
+    } else {
+      onUpdateHotspot(active.id, {
+        widthPercent: active.start.widthPercent + deltaX,
+        heightPercent: active.start.heightPercent + deltaY,
+      });
+    }
+  };
+
+  const endEditGesture = () => {
+    dragRef.current = null;
+  };
+
   return (
     <div className="bg-[#DDE8EF] p-3 sm:p-5">
       <div className="rounded-[24px] border border-[#A7BAC8] bg-[#172033] p-2 shadow-inner sm:p-3">
         <div className="overflow-x-auto rounded-[18px] border border-[#0B1F3A] bg-[#0B1F3A]">
-          <div className="relative min-w-[760px]" data-testid="actual-aerial-yard-map">
+          <div
+            ref={mapRef}
+            className={`relative min-w-[760px] ${editMode ? "touch-none" : ""}`}
+            data-testid="actual-aerial-yard-map"
+            onPointerMove={moveEditGesture}
+            onPointerUp={endEditGesture}
+            onPointerLeave={endEditGesture}
+          >
             <img
               src={`${import.meta.env.BASE_URL}sets-aerial-bay-layout.jpeg`}
               alt="Actual aerial SETS yard map with road, yard, buildings and Plot A to Plot F labels"
               className="block h-auto w-full select-none"
               draggable={false}
             />
-            {liveYardPlots.flatMap((plot) =>
+            {plots.flatMap((plot) =>
               plot.bays.map((bay) => {
                 const meta = yardStatusMeta[bay.status];
                 const isSelected = selectedBay.id === bay.id;
@@ -2310,23 +2305,38 @@ function AerialMap({
                     key={bay.id}
                     type="button"
                     onClick={() => onSelectBay(bay.id)}
+                    onPointerDown={(event) => beginEditGesture(event, bay, "move")}
                     title={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
                     aria-label={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
                     className={`group absolute rounded-[5px] border transition focus:outline-none focus:ring-4 focus:ring-[#1F6FEB]/50 ${
-                      isSelected
+                      editMode
+                        ? `border-white/80 shadow-[0_0_0_1px_rgba(11,31,58,0.35),0_0_16px_rgba(255,255,255,0.35)] ${isSelected ? "bg-[#1F6FEB]/35 ring-4 ring-[#1F6FEB]/40" : "bg-white/20 hover:bg-white/30"}`
+                        : isSelected
                         ? "border-[#1F6FEB] bg-[#1F6FEB]/20 shadow-[0_0_0_4px_rgba(31,111,235,0.35),0_0_22px_rgba(31,111,235,0.55)]"
                         : "border-white/0 bg-white/0 hover:border-white hover:bg-white/10 hover:shadow-[0_0_0_3px_rgba(255,255,255,0.35)]"
                     }`}
                     style={{
-                      left: `${bay.hotspot.left}%`,
-                      top: `${bay.hotspot.top}%`,
-                      width: `${bay.hotspot.width}%`,
-                      height: `${bay.hotspot.height}%`,
+                      left: `${bay.hotspot.xPercent}%`,
+                      top: `${bay.hotspot.yPercent}%`,
+                      width: `${bay.hotspot.widthPercent}%`,
+                      height: `${bay.hotspot.heightPercent}%`,
                     }}
                   >
+                    {editMode && (
+                      <>
+                        <span className="pointer-events-none absolute left-1 top-1 rounded bg-[#0B1F3A]/85 px-1.5 py-0.5 text-[10px] font-black leading-none text-white">
+                          {bay.plot.replace("Plot ", "Plot ")} / Bay {bay.bayNumber}
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          onPointerDown={(event) => beginEditGesture(event, bay, "resize")}
+                          className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize rounded-tl-md border-l border-t border-white/80 bg-[#0B1F3A]/80"
+                        />
+                      </>
+                    )}
                     <span
                       className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-white shadow-sm ${
-                        isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        isSelected || editMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                       }`}
                       style={{ backgroundColor: meta.color }}
                     />
@@ -2337,11 +2347,164 @@ function AerialMap({
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-bold text-white/72">
-          <span>Click the visible bay blocks on the real aerial yard image to inspect demo tanker details.</span>
-          <span className="rounded-full bg-white/10 px-3 py-1">Transparent clickable hotspots</span>
+          <span>{editMode ? "Drag boxes to move hotspots. Drag the bottom-right handle to resize." : "Click the visible bay blocks on the real aerial yard image to inspect demo tanker details."}</span>
+          <span className="rounded-full bg-white/10 px-3 py-1">
+            {editMode ? "Editor mode" : "Transparent clickable hotspots"}
+          </span>
         </div>
       </div>
     </div>
+  );
+}
+
+function HotspotEditorPanel({
+  hotspots,
+  selectedHotspot,
+  exportJson,
+  importJson,
+  onSelect,
+  onNudge,
+  onResize,
+  onDuplicate,
+  onDelete,
+  onReset,
+  onSave,
+  onExport,
+  onImportTextChange,
+  onImport,
+}: {
+  hotspots: AerialHotspot[];
+  selectedHotspot?: AerialHotspot;
+  exportJson: string;
+  importJson: string;
+  onSelect: (id: string) => void;
+  onNudge: (dx: number, dy: number) => void;
+  onResize: (dw: number, dh: number) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onReset: () => void;
+  onSave: () => void;
+  onExport: () => void;
+  onImportTextChange: (value: string) => void;
+  onImport: () => void;
+}) {
+  return (
+    <SectionCard className="p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <SmallLabel>Hotspot editor</SmallLabel>
+          <h3 className="mt-1 text-xl font-black text-[#172033]">
+            Calibrate aerial map boxes
+          </h3>
+        </div>
+        <Pill tone="warn">Demo admin only</Pill>
+      </div>
+
+      <label className="mt-4 block">
+        <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#64748B]">
+          Select hotspot
+        </span>
+        <select
+          value={selectedHotspot?.id || ""}
+          onChange={(event) => onSelect(event.target.value)}
+          className="mt-2 w-full rounded-2xl border border-[#DCE6F0] bg-white px-3 py-3 text-sm font-black text-[#172033]"
+        >
+          {hotspots.map((hotspot) => (
+            <option key={hotspot.id} value={hotspot.id}>
+              Plot {hotspot.plot} / Bay {hotspot.bay} / {hotspot.status}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {selectedHotspot && (
+        <div className="mt-4 rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-3">
+          <p className="text-sm font-black text-[#172033]">
+            Plot {selectedHotspot.plot} / Bay {selectedHotspot.bay}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-black text-[#172033]">
+            <span>x: {selectedHotspot.xPercent.toFixed(2)}%</span>
+            <span>y: {selectedHotspot.yPercent.toFixed(2)}%</span>
+            <span>w: {selectedHotspot.widthPercent.toFixed(2)}%</span>
+            <span>h: {selectedHotspot.heightPercent.toFixed(2)}%</span>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-2">
+        <div className="grid grid-cols-3 gap-2">
+          <span />
+          <button onClick={() => onNudge(0, -0.2)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Up
+          </button>
+          <span />
+          <button onClick={() => onNudge(-0.2, 0)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Left
+          </button>
+          <button onClick={() => onNudge(0, 0.2)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Down
+          </button>
+          <button onClick={() => onNudge(0.2, 0)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Right
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => onResize(0.2, 0)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Wider
+          </button>
+          <button onClick={() => onResize(-0.2, 0)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Narrower
+          </button>
+          <button onClick={() => onResize(0, 0.2)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Taller
+          </button>
+          <button onClick={() => onResize(0, -0.2)} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Shorter
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={onDuplicate} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Duplicate
+          </button>
+          <button onClick={onDelete} className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs font-black text-[#B91C1C]">
+            Delete
+          </button>
+          <button onClick={onReset} className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-xs font-black text-[#B45309]">
+            Reset defaults
+          </button>
+          <button onClick={onSave} className="rounded-xl bg-[#0B1F3A] px-3 py-2 text-xs font-black text-white">
+            Save local
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <button onClick={onExport} className="w-full rounded-xl bg-[#1F6FEB] px-3 py-2 text-xs font-black text-white">
+          Export JSON
+        </button>
+        <textarea
+          value={exportJson}
+          readOnly
+          rows={5}
+          className="mt-2 w-full rounded-2xl border border-[#DCE6F0] bg-white p-3 font-mono text-[11px] text-[#172033]"
+        />
+      </div>
+
+      <div className="mt-4">
+        <textarea
+          value={importJson}
+          onChange={(event) => onImportTextChange(event.target.value)}
+          placeholder="Paste hotspot JSON here..."
+          rows={5}
+          className="w-full rounded-2xl border border-[#DCE6F0] bg-white p-3 font-mono text-[11px] text-[#172033]"
+        />
+        <button onClick={onImport} className="mt-2 w-full rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+          Import JSON
+        </button>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -2356,6 +2519,13 @@ function LiveYardDashboard({
   onOpenLegacyDashboard: () => void;
   onOpenHome: () => void;
 }) {
+  const [hotspots, setHotspots] = useState<AerialHotspot[]>(() =>
+    loadAerialHotspots(),
+  );
+  const [editHotspots, setEditHotspots] = useState(false);
+  const [exportJson, setExportJson] = useState("");
+  const [importJson, setImportJson] = useState("");
+  const liveYardPlots = useMemo(() => createYardPlots(hotspots), [hotspots]);
   const firstBookedBay =
     liveYardPlots.flatMap((plot) => plot.bays).find((bay) => bay.status !== "available") ||
     liveYardPlots[0].bays[0];
@@ -2375,6 +2545,92 @@ function LiveYardDashboard({
     "Ready for Collection",
     "Departed",
   ];
+  const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedBay.id);
+
+  useEffect(() => {
+    if (!hotspots.some((hotspot) => hotspot.id === selectedBayId)) {
+      setSelectedBayId(hotspots[0]?.id || defaultAerialHotspots[0].id);
+    }
+  }, [hotspots, selectedBayId]);
+
+  const updateHotspot = (id: string, patch: Partial<AerialHotspot>) => {
+    setHotspots((prev) =>
+      prev.map((hotspot) =>
+        hotspot.id === id ? normalizeHotspot({ ...hotspot, ...patch }) : hotspot,
+      ),
+    );
+  };
+
+  const nudgeSelectedHotspot = (dx: number, dy: number) => {
+    if (!selectedHotspot) return;
+    updateHotspot(selectedHotspot.id, {
+      xPercent: selectedHotspot.xPercent + dx,
+      yPercent: selectedHotspot.yPercent + dy,
+    });
+  };
+
+  const resizeSelectedHotspot = (dw: number, dh: number) => {
+    if (!selectedHotspot) return;
+    updateHotspot(selectedHotspot.id, {
+      widthPercent: selectedHotspot.widthPercent + dw,
+      heightPercent: selectedHotspot.heightPercent + dh,
+    });
+  };
+
+  const duplicateSelectedHotspot = () => {
+    if (!selectedHotspot) return;
+    const nextBay =
+      Math.max(
+        0,
+        ...hotspots
+          .filter((hotspot) => hotspot.plot === selectedHotspot.plot)
+          .map((hotspot) => hotspot.bay),
+      ) + 1;
+    const duplicate = normalizeHotspot({
+      ...selectedHotspot,
+      id: `plot-${selectedHotspot.plot.toLowerCase()}-bay-${nextBay}`,
+      bay: nextBay,
+      xPercent: selectedHotspot.xPercent + 1,
+      yPercent: selectedHotspot.yPercent + 1,
+    });
+    setHotspots((prev) => [...prev, duplicate]);
+    setSelectedBayId(duplicate.id);
+  };
+
+  const deleteSelectedHotspot = () => {
+    if (!selectedHotspot || hotspots.length <= 1) return;
+    const nextHotspots = hotspots.filter((hotspot) => hotspot.id !== selectedHotspot.id);
+    setHotspots(nextHotspots);
+    setSelectedBayId(nextHotspots[0].id);
+  };
+
+  const resetHotspots = () => {
+    setHotspots(defaultAerialHotspots);
+    setSelectedBayId(defaultAerialHotspots[0].id);
+    localStorage.removeItem(hotspotStorageKey);
+  };
+
+  const saveHotspots = () => {
+    localStorage.setItem(hotspotStorageKey, JSON.stringify(hotspots, null, 2));
+  };
+
+  const exportHotspots = () => {
+    const json = JSON.stringify(hotspots, null, 2);
+    setExportJson(json);
+    navigator.clipboard?.writeText(json).catch(() => undefined);
+  };
+
+  const importHotspots = () => {
+    try {
+      const parsed = JSON.parse(importJson) as AerialHotspot[];
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      const clean = parsed.map(normalizeHotspot);
+      setHotspots(clean);
+      setSelectedBayId(clean[0].id);
+    } catch {
+      setExportJson("Import failed: JSON must be an array of hotspot objects.");
+    }
+  };
 
   return (
     <>
@@ -2438,7 +2694,17 @@ function LiveYardDashboard({
                       Actual aerial yard image map
                     </h2>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setEditHotspots((value) => !value)}
+                      className={`rounded-2xl px-4 py-2 text-xs font-black shadow-sm ${
+                        editHotspots
+                          ? "bg-[#F59E0B] text-white"
+                          : "border border-white/20 bg-white/10 text-white"
+                      }`}
+                    >
+                      {editHotspots ? "Exit Hotspot Editor" : "Edit Hotspots"}
+                    </button>
                     {Object.entries(yardStatusMeta).map(([key, meta]) => (
                       <span
                         key={key}
@@ -2458,7 +2724,13 @@ function LiveYardDashboard({
                 </div>
               </div>
 
-              <AerialMap selectedBay={selectedBay} onSelectBay={setSelectedBayId} />
+              <AerialMap
+                plots={liveYardPlots}
+                selectedBay={selectedBay}
+                onSelectBay={setSelectedBayId}
+                editMode={editHotspots}
+                onUpdateHotspot={updateHotspot}
+              />
             </SectionCard>
 
             <SectionCard className="p-4 sm:p-5">
@@ -2490,6 +2762,24 @@ function LiveYardDashboard({
           </div>
 
           <aside className="space-y-4">
+            {editHotspots && (
+              <HotspotEditorPanel
+                hotspots={hotspots}
+                selectedHotspot={selectedHotspot}
+                exportJson={exportJson}
+                importJson={importJson}
+                onSelect={setSelectedBayId}
+                onNudge={nudgeSelectedHotspot}
+                onResize={resizeSelectedHotspot}
+                onDuplicate={duplicateSelectedHotspot}
+                onDelete={deleteSelectedHotspot}
+                onReset={resetHotspots}
+                onSave={saveHotspots}
+                onExport={exportHotspots}
+                onImportTextChange={setImportJson}
+                onImport={importHotspots}
+              />
+            )}
             <SectionCard className="overflow-hidden">
               <div
                 className="p-5 text-white"
