@@ -2213,20 +2213,40 @@ function countPlotStatuses(plot: YardPlot) {
   };
 }
 
+function hexToRgba(hex: string, opacity: number) {
+  const clean = hex.replace("#", "");
+  const value = Number.parseInt(clean, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 function AerialMap({
   plots,
   selectedBay,
   onSelectBay,
   editMode,
   onUpdateHotspot,
+  showEditorLabels,
+  showEditorFill,
+  editorFillOpacity,
+  editorVisiblePlot,
+  editorZoom,
 }: {
   plots: YardPlot[];
   selectedBay: YardBay;
   onSelectBay: (bayId: string) => void;
   editMode: boolean;
   onUpdateHotspot: (id: string, patch: Partial<AerialHotspot>) => void;
+  showEditorLabels: boolean;
+  showEditorFill: boolean;
+  editorFillOpacity: number;
+  editorVisiblePlot: "All" | AerialHotspot["plot"];
+  editorZoom: number;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
+  const [hoveredBayId, setHoveredBayId] = useState("");
   const dragRef = useRef<{
     id: string;
     mode: "move" | "resize";
@@ -2277,6 +2297,10 @@ function AerialMap({
   const endEditGesture = () => {
     dragRef.current = null;
   };
+  const visiblePlots =
+    editMode && editorVisiblePlot !== "All"
+      ? plots.filter((plot) => plot.id === `Plot ${editorVisiblePlot}`)
+      : plots;
 
   return (
     <div className="bg-[#DDE8EF] p-3 sm:p-5">
@@ -2284,11 +2308,15 @@ function AerialMap({
         <div className="overflow-x-auto rounded-[18px] border border-[#0B1F3A] bg-[#0B1F3A]">
           <div
             ref={mapRef}
-            className={`relative min-w-[760px] ${editMode ? "touch-none" : ""}`}
+            className={`relative ${editMode ? "touch-none" : ""}`}
             data-testid="actual-aerial-yard-map"
             onPointerMove={moveEditGesture}
             onPointerUp={endEditGesture}
             onPointerLeave={endEditGesture}
+            style={{
+              minWidth: `${Math.round(760 * editorZoom)}px`,
+              width: `${editorZoom * 100}%`,
+            }}
           >
             <img
               src={`${import.meta.env.BASE_URL}sets-aerial-bay-layout.jpeg`}
@@ -2296,21 +2324,26 @@ function AerialMap({
               className="block h-auto w-full select-none"
               draggable={false}
             />
-            {plots.flatMap((plot) =>
+            {visiblePlots.flatMap((plot) =>
               plot.bays.map((bay) => {
                 const meta = yardStatusMeta[bay.status];
                 const isSelected = selectedBay.id === bay.id;
+                const showLabel =
+                  editMode &&
+                  (showEditorLabels || isSelected || hoveredBayId === bay.id);
                 return (
                   <button
                     key={bay.id}
                     type="button"
                     onClick={() => onSelectBay(bay.id)}
                     onPointerDown={(event) => beginEditGesture(event, bay, "move")}
+                    onPointerEnter={() => setHoveredBayId(bay.id)}
+                    onPointerLeave={() => setHoveredBayId("")}
                     title={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
                     aria-label={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
                     className={`group absolute rounded-[5px] border transition focus:outline-none focus:ring-4 focus:ring-[#1F6FEB]/50 ${
                       editMode
-                        ? `border-white/80 shadow-[0_0_0_1px_rgba(11,31,58,0.35),0_0_16px_rgba(255,255,255,0.35)] ${isSelected ? "bg-[#1F6FEB]/35 ring-4 ring-[#1F6FEB]/40" : "bg-white/20 hover:bg-white/30"}`
+                        ? `border-white/70 shadow-[0_0_0_1px_rgba(11,31,58,0.35)] hover:border-white hover:shadow-[0_0_0_2px_rgba(255,255,255,0.45)] ${isSelected ? "ring-4 ring-[#1F6FEB]/50" : ""}`
                         : isSelected
                         ? "border-[#1F6FEB] bg-[#1F6FEB]/20 shadow-[0_0_0_4px_rgba(31,111,235,0.35),0_0_22px_rgba(31,111,235,0.55)]"
                         : "border-white/0 bg-white/0 hover:border-white hover:bg-white/10 hover:shadow-[0_0_0_3px_rgba(255,255,255,0.35)]"
@@ -2320,17 +2353,24 @@ function AerialMap({
                       top: `${bay.hotspot.yPercent}%`,
                       width: `${bay.hotspot.widthPercent}%`,
                       height: `${bay.hotspot.heightPercent}%`,
+                      backgroundColor: editMode
+                        ? showEditorFill
+                          ? hexToRgba(meta.color, editorFillOpacity)
+                          : "transparent"
+                        : undefined,
                     }}
                   >
                     {editMode && (
                       <>
-                        <span className="pointer-events-none absolute left-1 top-1 rounded bg-[#0B1F3A]/85 px-1.5 py-0.5 text-[10px] font-black leading-none text-white">
-                          {bay.plot.replace("Plot ", "Plot ")} / Bay {bay.bayNumber}
-                        </span>
+                        {showLabel && (
+                          <span className="pointer-events-none absolute left-0 top-0 z-20 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-lg bg-[#0B1F3A]/95 px-2 py-1 text-[10px] font-black leading-none text-white shadow-lg">
+                            {bay.plot} / Bay {bay.bayNumber}
+                          </span>
+                        )}
                         <span
                           aria-hidden="true"
                           onPointerDown={(event) => beginEditGesture(event, bay, "resize")}
-                          className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize rounded-tl-md border-l border-t border-white/80 bg-[#0B1F3A]/80"
+                          className="absolute bottom-0 right-0 h-3.5 w-3.5 cursor-nwse-resize rounded-tl-md border-l border-t border-white/80 bg-[#0B1F3A]/80"
                         />
                       </>
                     )}
@@ -2362,13 +2402,26 @@ function HotspotEditorPanel({
   selectedHotspot,
   exportJson,
   importJson,
+  showLabels,
+  showFill,
+  fillOpacity,
+  visiblePlot,
+  zoom,
   onSelect,
+  onToggleLabels,
+  onToggleFill,
+  onOpacityChange,
+  onVisiblePlotChange,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
   onNudge,
   onResize,
   onDuplicate,
   onDelete,
   onReset,
   onSave,
+  onCopySelected,
   onExport,
   onImportTextChange,
   onImport,
@@ -2377,17 +2430,34 @@ function HotspotEditorPanel({
   selectedHotspot?: AerialHotspot;
   exportJson: string;
   importJson: string;
+  showLabels: boolean;
+  showFill: boolean;
+  fillOpacity: number;
+  visiblePlot: "All" | AerialHotspot["plot"];
+  zoom: number;
   onSelect: (id: string) => void;
+  onToggleLabels: () => void;
+  onToggleFill: () => void;
+  onOpacityChange: (value: number) => void;
+  onVisiblePlotChange: (value: "All" | AerialHotspot["plot"]) => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onResetZoom: () => void;
   onNudge: (dx: number, dy: number) => void;
   onResize: (dw: number, dh: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onReset: () => void;
   onSave: () => void;
+  onCopySelected: () => void;
   onExport: () => void;
   onImportTextChange: (value: string) => void;
   onImport: () => void;
 }) {
+  const shownHotspots =
+    visiblePlot === "All"
+      ? hotspots
+      : hotspots.filter((hotspot) => hotspot.plot === visiblePlot);
   return (
     <SectionCard className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2409,7 +2479,7 @@ function HotspotEditorPanel({
           onChange={(event) => onSelect(event.target.value)}
           className="mt-2 w-full rounded-2xl border border-[#DCE6F0] bg-white px-3 py-3 text-sm font-black text-[#172033]"
         >
-          {hotspots.map((hotspot) => (
+          {shownHotspots.map((hotspot) => (
             <option key={hotspot.id} value={hotspot.id}>
               Plot {hotspot.plot} / Bay {hotspot.bay} / {hotspot.status}
             </option>
@@ -2419,17 +2489,78 @@ function HotspotEditorPanel({
 
       {selectedHotspot && (
         <div className="mt-4 rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-3">
-          <p className="text-sm font-black text-[#172033]">
-            Plot {selectedHotspot.plot} / Bay {selectedHotspot.bay}
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-black text-[#172033]">
-            <span>x: {selectedHotspot.xPercent.toFixed(2)}%</span>
-            <span>y: {selectedHotspot.yPercent.toFixed(2)}%</span>
-            <span>w: {selectedHotspot.widthPercent.toFixed(2)}%</span>
-            <span>h: {selectedHotspot.heightPercent.toFixed(2)}%</span>
+          <div className="grid gap-2 text-xs font-black text-[#172033]">
+            <span>ID: {selectedHotspot.id}</span>
+            <span>Plot: {selectedHotspot.plot}</span>
+            <span>Bay: {selectedHotspot.bay}</span>
+            <span>Status: {selectedHotspot.status}</span>
+            <span>xPercent: {selectedHotspot.xPercent.toFixed(2)}%</span>
+            <span>yPercent: {selectedHotspot.yPercent.toFixed(2)}%</span>
+            <span>widthPercent: {selectedHotspot.widthPercent.toFixed(2)}%</span>
+            <span>heightPercent: {selectedHotspot.heightPercent.toFixed(2)}%</span>
           </div>
+          <button onClick={onCopySelected} className="mt-3 w-full rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Copy selected hotspot JSON
+          </button>
         </div>
       )}
+
+      <div className="mt-4 rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-3">
+        <SmallLabel>Display</SmallLabel>
+        <div className="mt-3 grid gap-2">
+          <label className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Toggle labels on/off
+            <input type="checkbox" checked={showLabels} onChange={onToggleLabels} />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Toggle hotspot fill on/off
+            <input type="checkbox" checked={showFill} onChange={onToggleFill} />
+          </label>
+          <label className="grid gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            <span>Opacity: {fillOpacity.toFixed(2)}</span>
+            <input
+              type="range"
+              min="0"
+              max="0.6"
+              step="0.05"
+              value={fillOpacity}
+              onChange={(event) => onOpacityChange(Number(event.target.value))}
+            />
+          </label>
+          <label className="grid gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            <span>Show only selected plot</span>
+            <select
+              value={visiblePlot}
+              onChange={(event) =>
+                onVisiblePlotChange(event.target.value as "All" | AerialHotspot["plot"])
+              }
+              className="rounded-lg border border-[#D6DEE8] bg-white px-2 py-2"
+            >
+              {["All", "A", "B", "C", "D", "E", "F"].map((plot) => (
+                <option key={plot} value={plot}>
+                  {plot === "All" ? "All" : `Plot ${plot}`}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-3">
+        <SmallLabel>Zoom</SmallLabel>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <button onClick={onZoomOut} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Zoom out
+          </button>
+          <button onClick={onResetZoom} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Reset zoom
+          </button>
+          <button onClick={onZoomIn} className="rounded-xl border border-[#D6DEE8] bg-white px-3 py-2 text-xs font-black text-[#172033]">
+            Zoom in
+          </button>
+        </div>
+        <p className="mt-2 text-xs font-bold text-[#64748B]">Current zoom: {zoom.toFixed(2)}x</p>
+      </div>
 
       <div className="mt-4 grid gap-2">
         <div className="grid grid-cols-3 gap-2">
@@ -2482,7 +2613,7 @@ function HotspotEditorPanel({
 
       <div className="mt-4">
         <button onClick={onExport} className="w-full rounded-xl bg-[#1F6FEB] px-3 py-2 text-xs font-black text-white">
-          Export JSON
+          Export all JSON
         </button>
         <textarea
           value={exportJson}
@@ -2555,6 +2686,13 @@ function LiveYardDashboard({
   });
   const [exportJson, setExportJson] = useState("");
   const [importJson, setImportJson] = useState("");
+  const [showEditorLabels, setShowEditorLabels] = useState(false);
+  const [showEditorFill, setShowEditorFill] = useState(true);
+  const [editorFillOpacity, setEditorFillOpacity] = useState(0.18);
+  const [editorVisiblePlot, setEditorVisiblePlot] = useState<
+    "All" | AerialHotspot["plot"]
+  >("All");
+  const [editorZoom, setEditorZoom] = useState(1);
   const liveYardPlots = useMemo(() => createYardPlots(hotspots), [hotspots]);
   const firstBookedBay =
     liveYardPlots.flatMap((plot) => plot.bays).find((bay) => bay.status !== "available") ||
@@ -2577,6 +2715,35 @@ function LiveYardDashboard({
   ];
   const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedBay.id);
   const toggleHotspotEditor = () => setEditHotspots((value) => !value);
+
+  useEffect(() => {
+    if (!editHotspots) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      const amount = event.shiftKey ? 1 : 0.15;
+      const x =
+        event.key === "ArrowLeft" ? -amount : event.key === "ArrowRight" ? amount : 0;
+      const y =
+        event.key === "ArrowUp" ? -amount : event.key === "ArrowDown" ? amount : 0;
+      if (event.altKey) {
+        resizeSelectedHotspot(x, y);
+      } else {
+        nudgeSelectedHotspot(x, y);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editHotspots, selectedHotspot]);
 
   useEffect(() => {
     if (!hotspots.some((hotspot) => hotspot.id === selectedBayId)) {
@@ -2645,6 +2812,13 @@ function LiveYardDashboard({
     localStorage.setItem(hotspotStorageKey, JSON.stringify(hotspots, null, 2));
   };
 
+  const copySelectedHotspot = () => {
+    if (!selectedHotspot) return;
+    const json = JSON.stringify(selectedHotspot, null, 2);
+    setExportJson(json);
+    navigator.clipboard?.writeText(json).catch(() => undefined);
+  };
+
   const exportHotspots = () => {
     const json = JSON.stringify(hotspots, null, 2);
     setExportJson(json);
@@ -2660,6 +2834,14 @@ function LiveYardDashboard({
       setSelectedBayId(clean[0].id);
     } catch {
       setExportJson("Import failed: JSON must be an array of hotspot objects.");
+    }
+  };
+
+  const changeVisiblePlot = (plot: "All" | AerialHotspot["plot"]) => {
+    setEditorVisiblePlot(plot);
+    if (plot !== "All") {
+      const firstInPlot = hotspots.find((hotspot) => hotspot.plot === plot);
+      if (firstInPlot) setSelectedBayId(firstInPlot.id);
     }
   };
 
@@ -2761,6 +2943,11 @@ function LiveYardDashboard({
                 onSelectBay={setSelectedBayId}
                 editMode={editHotspots}
                 onUpdateHotspot={updateHotspot}
+                showEditorLabels={showEditorLabels}
+                showEditorFill={showEditorFill}
+                editorFillOpacity={editorFillOpacity}
+                editorVisiblePlot={editorVisiblePlot}
+                editorZoom={editorZoom}
               />
             </SectionCard>
 
@@ -2799,13 +2986,26 @@ function LiveYardDashboard({
                 selectedHotspot={selectedHotspot}
                 exportJson={exportJson}
                 importJson={importJson}
+                showLabels={showEditorLabels}
+                showFill={showEditorFill}
+                fillOpacity={editorFillOpacity}
+                visiblePlot={editorVisiblePlot}
+                zoom={editorZoom}
                 onSelect={setSelectedBayId}
+                onToggleLabels={() => setShowEditorLabels((value) => !value)}
+                onToggleFill={() => setShowEditorFill((value) => !value)}
+                onOpacityChange={setEditorFillOpacity}
+                onVisiblePlotChange={changeVisiblePlot}
+                onZoomIn={() => setEditorZoom((value) => clampPercent(value + 0.25, 0.5, 3))}
+                onZoomOut={() => setEditorZoom((value) => clampPercent(value - 0.25, 0.5, 3))}
+                onResetZoom={() => setEditorZoom(1)}
                 onNudge={nudgeSelectedHotspot}
                 onResize={resizeSelectedHotspot}
                 onDuplicate={duplicateSelectedHotspot}
                 onDelete={deleteSelectedHotspot}
                 onReset={resetHotspots}
                 onSave={saveHotspots}
+                onCopySelected={copySelectedHotspot}
                 onExport={exportHotspots}
                 onImportTextChange={setImportJson}
                 onImport={importHotspots}
