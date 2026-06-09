@@ -1,16 +1,23 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  AlertTriangle,
   BarChart3,
+  CalendarDays,
   CheckCircle2,
   ClipboardPen,
   FileText,
+  Flame,
   Home,
+  MapPinned,
   Printer,
   QrCode,
   Save,
   Search,
   ShieldAlert,
+  Thermometer,
+  Truck,
+  Warehouse,
 } from "lucide-react";
 import {
   Bar,
@@ -27,6 +34,7 @@ import {
 } from "recharts";
 
 type Screen =
+  | "liveYard"
   | "home"
   | "service"
   | "lookupSelect"
@@ -2007,6 +2015,526 @@ function CompactTankRecordsTable({ title, rows }: { title: string; rows: Compact
   );
 }
 
+type YardBayStatus =
+  | "available"
+  | "booked"
+  | "occupied"
+  | "steam"
+  | "ready"
+  | "issue";
+
+type YardBay = {
+  id: string;
+  plot: string;
+  bayNumber: number;
+  status: YardBayStatus;
+  customer?: string;
+  tankUnit?: string;
+  jobNumber?: string;
+  product?: string;
+  requiredTemperature?: string;
+  maximumContactTemperature?: string;
+};
+
+type YardPlot = {
+  id: string;
+  booked: number;
+  available: number;
+  bays: YardBay[];
+};
+
+const denHartoghBooking = {
+  customer: "Den Hartogh Liquid Logistics BV",
+  tankUnit: "256791 / PCVU 256791-3",
+  jobNumber: "3665828",
+  product: "Carbowax Polyethylene Glycol 8000E Molten (Inhibited)",
+  requiredTemperature: "105\u00B0C",
+  maximumContactTemperature: "140\u00B0C",
+};
+
+const yardStatusMeta: Record<
+  YardBayStatus,
+  { label: string; shortLabel: string; color: string; text: string; border: string }
+> = {
+  available: {
+    label: "Available",
+    shortLabel: "Free",
+    color: "#CBD5E1",
+    text: "#334155",
+    border: "#94A3B8",
+  },
+  booked: {
+    label: "Booked / Expected",
+    shortLabel: "Booked",
+    color: "#F59E0B",
+    text: "#7C2D12",
+    border: "#D97706",
+  },
+  occupied: {
+    label: "Occupied / On Site",
+    shortLabel: "On site",
+    color: "#7C3AED",
+    text: "#FFFFFF",
+    border: "#5B21B6",
+  },
+  steam: {
+    label: "On Steam / Heating",
+    shortLabel: "Steam",
+    color: "#DC2626",
+    text: "#FFFFFF",
+    border: "#991B1B",
+  },
+  ready: {
+    label: "Ready for Collection",
+    shortLabel: "Ready",
+    color: "#16A34A",
+    text: "#FFFFFF",
+    border: "#15803D",
+  },
+  issue: {
+    label: "Maintenance / Issue",
+    shortLabel: "Issue",
+    color: "#1F2937",
+    text: "#FFFFFF",
+    border: "#111827",
+  },
+};
+
+function createYardPlot(id: string, booked: number, available: number): YardPlot {
+  const statusCycle: YardBayStatus[] = [
+    "booked",
+    "occupied",
+    "steam",
+    "occupied",
+    "ready",
+    "booked",
+    "occupied",
+    "issue",
+  ];
+  const bayStatuses = [
+    ...Array.from({ length: booked }, (_, index) => statusCycle[index % statusCycle.length]),
+    ...Array.from({ length: available }, () => "available" as YardBayStatus),
+  ];
+  return {
+    id,
+    booked,
+    available,
+    bays: bayStatuses.map((status, index) => ({
+      id: `${id}-${index + 1}`,
+      plot: id,
+      bayNumber: index + 1,
+      status,
+      ...(status === "available"
+        ? {}
+        : {
+            ...denHartoghBooking,
+          }),
+    })),
+  };
+}
+
+const liveYardPlots: YardPlot[] = [
+  createYardPlot("Plot A", 6, 2),
+  createYardPlot("Plot B", 12, 4),
+  createYardPlot("Plot C", 7, 2),
+  createYardPlot("Plot D", 11, 4),
+  createYardPlot("Plot E", 9, 5),
+  createYardPlot("Plot F", 24, 11),
+];
+
+const liveYardSummary = [
+  { label: "Expected arrivals today", value: 18, icon: CalendarDays, tone: "blue" },
+  { label: "Arrived", value: 11, icon: Truck, tone: "purple" },
+  { label: "In storage", value: 17, icon: Warehouse, tone: "indigo" },
+  { label: "On steam/heat", value: 9, icon: Flame, tone: "red" },
+  { label: "Ready for collection", value: 6, icon: CheckCircle2, tone: "green" },
+  { label: "Available steaming bays today", value: 28, icon: MapPinned, tone: "slate" },
+  { label: "Available tomorrow", value: 10, icon: CalendarDays, tone: "amber" },
+  { label: "Data issues", value: 3, icon: AlertTriangle, tone: "dark" },
+];
+
+const liveYardWorkflow = [
+  "Steam-up booking received",
+  "Tanker arrives",
+  "Gateman scans/enters trailer registration or tanker unit number",
+  "App pulls correct steam-up form",
+  "Gateman confirms tanker/customer/product",
+  "Driver enters name and signs on screen",
+  "Tanker assigned to storage or steam/heating bay",
+  "Temperature tracked until target reached",
+  "Customer informed when ready for pickup",
+  "Tanker collected/departed and bay becomes available again",
+];
+
+function countPlotStatuses(plot: YardPlot) {
+  const counts = plot.bays.reduce(
+    (acc, bay) => {
+      acc[bay.status] += 1;
+      return acc;
+    },
+    {
+      available: 0,
+      booked: 0,
+      occupied: 0,
+      steam: 0,
+      ready: 0,
+      issue: 0,
+    } as Record<YardBayStatus, number>,
+  );
+  return {
+    ...counts,
+    occupiedTotal: counts.occupied + counts.steam + counts.ready + counts.issue,
+  };
+}
+
+function LiveYardDashboard({
+  onNewIntake,
+  onOpenRecords,
+  onOpenLegacyDashboard,
+  onOpenHome,
+}: {
+  onNewIntake: () => void;
+  onOpenRecords: () => void;
+  onOpenLegacyDashboard: () => void;
+  onOpenHome: () => void;
+}) {
+  const firstBookedBay =
+    liveYardPlots.flatMap((plot) => plot.bays).find((bay) => bay.status !== "available") ||
+    liveYardPlots[0].bays[0];
+  const [selectedBayId, setSelectedBayId] = useState(firstBookedBay.id);
+  const selectedBay =
+    liveYardPlots.flatMap((plot) => plot.bays).find((bay) => bay.id === selectedBayId) ||
+    firstBookedBay;
+  const selectedPlot =
+    liveYardPlots.find((plot) => plot.id === selectedBay.plot) || liveYardPlots[0];
+  const selectedCounts = countPlotStatuses(selectedPlot);
+  const selectedStatus = yardStatusMeta[selectedBay.status];
+  const statusExamples = [
+    "Booked",
+    "Arrived",
+    "In Storage",
+    "On Steam",
+    "Ready for Collection",
+    "Departed",
+  ];
+
+  return (
+    <>
+      <AppHeader
+        title="SETS Live Yard Dashboard"
+        subtitle="Live yard view for steam-up bookings, tanker arrivals, bay availability, heating status and customer capacity planning."
+        onHome={onOpenHome}
+        right={
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill tone="warn">WIP Prototype / Demo Data</Pill>
+            <button
+              onClick={onNewIntake}
+              className="rounded-2xl bg-[#0B1F3A] px-4 py-3 text-xs font-black text-white shadow-sm"
+            >
+              New Intake
+            </button>
+          </div>
+        }
+      />
+      <div className="flex-1 overflow-auto bg-[#EEF4F8]">
+        <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5 xl:grid-cols-[minmax(0,1fr)_410px]">
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {liveYardSummary.map((item) => {
+                const Icon = item.icon;
+                const toneClasses: Record<string, string> = {
+                  blue: "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]",
+                  purple: "border-[#DDD6FE] bg-[#F5F3FF] text-[#6D28D9]",
+                  indigo: "border-[#C7D2FE] bg-[#EEF2FF] text-[#4338CA]",
+                  red: "border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]",
+                  green: "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]",
+                  slate: "border-[#CBD5E1] bg-white text-[#334155]",
+                  amber: "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]",
+                  dark: "border-[#CBD5E1] bg-[#172033] text-white",
+                };
+                return (
+                  <button
+                    key={item.label}
+                    className={`min-h-[116px] rounded-[22px] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${toneClasses[item.tone]}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-black uppercase leading-4 tracking-[0.12em]">
+                        {item.label}
+                      </span>
+                      <Icon className="h-6 w-6 shrink-0" />
+                    </div>
+                    <p className="mt-4 text-4xl font-black leading-none">
+                      {item.value}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <SectionCard className="overflow-hidden rounded-[26px] border-[#CAD7E4]">
+              <div className="border-b border-[#DCE6F0] bg-[linear-gradient(135deg,_#102A43_0%,_#21506F_55%,_#3B5566_100%)] p-5 text-white">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <SmallLabel>Live aerial bay layout</SmallLabel>
+                    <h2 className="mt-2 text-2xl font-black sm:text-3xl">
+                      Steam-up and storage plots
+                    </h2>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(yardStatusMeta).map(([key, meta]) => (
+                      <span
+                        key={key}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-black"
+                      >
+                        <span
+                          className="h-3 w-3 rounded-sm border"
+                          style={{
+                            backgroundColor: meta.color,
+                            borderColor: meta.border,
+                          }}
+                        />
+                        {meta.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#DDE8EF] p-3 sm:p-5">
+                <div className="rounded-[24px] border border-[#A7BAC8] bg-[linear-gradient(135deg,_#C9D6DE_0%,_#E7EEF2_48%,_#B9C8D1_100%)] p-3 shadow-inner sm:p-5">
+                  <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+                    {liveYardPlots.map((plot) => {
+                      const counts = countPlotStatuses(plot);
+                      const isSelected = plot.id === selectedPlot.id;
+                      return (
+                        <button
+                          key={plot.id}
+                          onClick={() => setSelectedBayId(plot.bays[0].id)}
+                          className={`rounded-[24px] border p-3 text-left shadow-sm transition ${
+                            isSelected
+                              ? "border-[#1F6FEB] bg-white ring-4 ring-[#BFDBFE]"
+                              : "border-[#B6C6D2] bg-white/80 hover:border-[#1F6FEB]"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#64748B]">
+                                {plot.id}
+                              </p>
+                              <h3 className="mt-1 text-xl font-black text-[#172033]">
+                                {plot.booked} booked / {plot.available} available
+                              </h3>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 text-center text-[10px] font-black">
+                              <span className="rounded-lg bg-[#FFFBEB] px-2 py-1 text-[#B45309]">
+                                B {plot.booked}
+                              </span>
+                              <span className="rounded-lg bg-[#F5F3FF] px-2 py-1 text-[#6D28D9]">
+                                O {counts.occupiedTotal}
+                              </span>
+                              <span className="rounded-lg bg-[#F8FAFC] px-2 py-1 text-[#334155]">
+                                A {plot.available}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5 xl:grid-cols-6">
+                            {plot.bays.map((bay) => {
+                              const meta = yardStatusMeta[bay.status];
+                              return (
+                                <span
+                                  key={bay.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setSelectedBayId(bay.id);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      setSelectedBayId(bay.id);
+                                    }
+                                  }}
+                                  title={`${plot.id} Bay ${bay.bayNumber}: ${meta.label}`}
+                                  className={`flex aspect-square min-h-12 items-center justify-center rounded-xl border text-[11px] font-black shadow-sm transition hover:scale-105 ${
+                                    selectedBay.id === bay.id ? "ring-4 ring-[#1F6FEB]/30" : ""
+                                  }`}
+                                  style={{
+                                    backgroundColor: meta.color,
+                                    borderColor: meta.border,
+                                    color: meta.text,
+                                  }}
+                                >
+                                  {bay.bayNumber}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard className="p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <SmallLabel>Steam-up workflow</SmallLabel>
+                  <h2 className="mt-2 text-2xl font-black text-[#172033]">
+                    From paper form to yard action
+                  </h2>
+                </div>
+                <Pill tone="blue">Manual demo flow</Pill>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {liveYardWorkflow.map((step, index) => (
+                  <div
+                    key={step}
+                    className="grid grid-cols-[44px_1fr] items-center gap-3 rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-3"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B1F3A] text-sm font-black text-white">
+                      {index + 1}
+                    </span>
+                    <p className="text-sm font-black leading-5 text-[#172033]">
+                      {step}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <aside className="space-y-4">
+            <SectionCard className="overflow-hidden">
+              <div
+                className="p-5 text-white"
+                style={{ backgroundColor: selectedStatus.color }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <SmallLabel>Selected bay</SmallLabel>
+                    <h2 className="mt-2 text-3xl font-black">
+                      {selectedBay.plot} / Bay {selectedBay.bayNumber}
+                    </h2>
+                  </div>
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">
+                    {selectedStatus.shortLabel}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-2xl bg-[#FFFBEB] p-3">
+                    <p className="text-[10px] font-black uppercase text-[#B45309]">
+                      Booked
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-[#172033]">
+                      {selectedPlot.booked}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-[#F5F3FF] p-3">
+                    <p className="text-[10px] font-black uppercase text-[#6D28D9]">
+                      Occupied
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-[#172033]">
+                      {selectedCounts.occupiedTotal}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-[#F8FAFC] p-3">
+                    <p className="text-[10px] font-black uppercase text-[#334155]">
+                      Available
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-[#172033]">
+                      {selectedPlot.available}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-4">
+                  <div className="flex items-center gap-2">
+                    <Thermometer className="h-5 w-5 text-[#DC2626]" />
+                    <h3 className="text-lg font-black text-[#172033]">
+                      Tanker / booking detail
+                    </h3>
+                  </div>
+                  <dl className="mt-4 space-y-3 text-sm">
+                    {[
+                      ["Customer", selectedBay.customer || denHartoghBooking.customer],
+                      ["Tank Unit", selectedBay.tankUnit || denHartoghBooking.tankUnit],
+                      ["Job Number", selectedBay.jobNumber || denHartoghBooking.jobNumber],
+                      ["Product", selectedBay.product || denHartoghBooking.product],
+                      [
+                        "Required temperature",
+                        selectedBay.requiredTemperature || denHartoghBooking.requiredTemperature,
+                      ],
+                      [
+                        "Maximum contact temperature",
+                        selectedBay.maximumContactTemperature ||
+                          denHartoghBooking.maximumContactTemperature,
+                      ],
+                      ["Current bay status", selectedStatus.label],
+                    ].map(([label, value]) => (
+                      <div key={label} className="grid gap-1">
+                        <dt className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">
+                          {label}
+                        </dt>
+                        <dd className="font-black leading-5 text-[#172033]">
+                          {value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+
+                <div>
+                  <SmallLabel>Status examples</SmallLabel>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {statusExamples.map((status) => (
+                      <span
+                        key={status}
+                        className="rounded-full border border-[#D6DEE8] bg-white px-3 py-1 text-xs font-black text-[#172033]"
+                      >
+                        {status}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard className="p-5">
+              <SmallLabel>Existing mockup screens</SmallLabel>
+              <div className="mt-4 grid gap-2">
+                <button
+                  onClick={onNewIntake}
+                  className="rounded-2xl bg-[#0B1F3A] px-4 py-3 text-left text-sm font-black text-white"
+                >
+                  Open intake workflow
+                </button>
+                <button
+                  onClick={onOpenRecords}
+                  className="rounded-2xl border border-[#D6DEE8] bg-white px-4 py-3 text-left text-sm font-black text-[#172033]"
+                >
+                  Saved records / print library
+                </button>
+                <button
+                  onClick={onOpenLegacyDashboard}
+                  className="rounded-2xl border border-[#D6DEE8] bg-white px-4 py-3 text-left text-sm font-black text-[#172033]"
+                >
+                  Existing management dashboard
+                </button>
+              </div>
+            </SectionCard>
+          </aside>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function BackToDashboardButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -2356,7 +2884,7 @@ function FixModeBanner({
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashLeaving, setSplashLeaving] = useState(false);
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>("liveYard");
   const [formTab, setFormTab] = useState<FormTab>("intake");
   const [draft, setDraft] = useState<FormState>(() => loadStoredDraft());
   const [savedRecords, setSavedRecords] = useState<SavedRecord[]>(() =>
@@ -3440,6 +3968,15 @@ function App() {
       <PrintRecordDocument record={lastSavedRecord} intent={exportIntent} receiptKind={receiptKind} />
       <div className="app-shell no-print min-h-screen bg-[radial-gradient(circle_at_top,_#f4f8ff_0%,_#e8effa_45%,_#dde6f4_100%)] p-0 sm:p-3 lg:p-5">
       <div className="mx-auto flex min-h-[100svh] max-w-[1380px] flex-col overflow-hidden border border-white/60 bg-[#F5F8FC] shadow-[0_28px_90px_rgba(11,31,58,0.18)] sm:h-[93vh] sm:min-h-0 sm:rounded-[38px]">
+        {screen === "liveYard" && (
+          <LiveYardDashboard
+            onNewIntake={startNewIntake}
+            onOpenRecords={() => setScreen("records")}
+            onOpenLegacyDashboard={() => setScreen("dashboard")}
+            onOpenHome={() => setScreen("home")}
+          />
+        )}
+
         {screen === "home" && (
           <>
             <AppHeader
@@ -3479,10 +4016,10 @@ function App() {
                       color: "#123C69",
                     },
                     {
-                      title: "Live Dashboard",
-                      note: "Live clean/incomplete separation with review-needed links.",
+                      title: "Live Yard Dashboard",
+                      note: "Boss-facing steam-up, arrivals and bay availability view.",
                       icon: BarChart3,
-                      action: () => setScreen("dashboard"),
+                      action: () => setScreen("liveYard"),
                       color: "#F97316",
                     },
                     {
