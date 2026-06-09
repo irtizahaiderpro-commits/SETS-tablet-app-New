@@ -27,6 +27,8 @@ type HotspotGrid = {
   gapY: number;
 };
 
+// Demo status order follows the visible coloured blocks on the aerial mockup image.
+// Orange = booked/expected, purple = occupied/on site, grey = available.
 const plotStatusSequences: Record<AerialHotspot["plot"], AerialHotspotStatus[]> = {
   A: [
     "booked",
@@ -81,7 +83,7 @@ const plotStatusSequences: Record<AerialHotspot["plot"], AerialHotspotStatus[]> 
     "occupied",
     "available",
     "available",
-    "occupied",
+    "available",
     "available",
   ],
   E: [
@@ -113,13 +115,13 @@ const plotStatusSequences: Record<AerialHotspot["plot"], AerialHotspotStatus[]> 
     "booked",
     "booked",
     "booked",
-    "occupied",
-    "occupied",
-    "occupied",
-    "occupied",
-    "occupied",
-    "occupied",
-    "occupied",
+    "booked",
+    "booked",
+    "booked",
+    "booked",
+    "booked",
+    "booked",
+    "booked",
     "occupied",
     "occupied",
     "occupied",
