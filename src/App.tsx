@@ -2104,6 +2104,9 @@ const yardStatusMeta: Record<
 
 const plotOrder: Array<AerialHotspot["plot"]> = ["A", "B", "C", "D", "E", "F"];
 const hotspotStorageKey = "sets-aerial-hotspots-v1";
+const defaultHotspotStatusById = new Map(
+  defaultAerialHotspots.map((hotspot) => [hotspot.id, hotspot.status]),
+);
 
 function clampPercent(value: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, Number(value.toFixed(2))));
@@ -2114,6 +2117,7 @@ function normalizeHotspot(raw: AerialHotspot): AerialHotspot {
   const heightPercent = clampPercent(raw.heightPercent, 0.4, 30);
   return {
     ...raw,
+    status: defaultHotspotStatusById.get(raw.id) ?? raw.status,
     xPercent: clampPercent(raw.xPercent, 0, 100 - widthPercent),
     yPercent: clampPercent(raw.yPercent, 0, 100 - heightPercent),
     widthPercent,
