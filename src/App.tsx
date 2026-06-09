@@ -2283,6 +2283,68 @@ function countPlotStatuses(plot: YardPlot) {
   };
 }
 
+function AerialMap({
+  selectedBay,
+  onSelectBay,
+}: {
+  selectedBay: YardBay;
+  onSelectBay: (bayId: string) => void;
+}) {
+  return (
+    <div className="bg-[#DDE8EF] p-3 sm:p-5">
+      <div className="rounded-[24px] border border-[#A7BAC8] bg-[#172033] p-2 shadow-inner sm:p-3">
+        <div className="overflow-x-auto rounded-[18px] border border-[#0B1F3A] bg-[#0B1F3A]">
+          <div className="relative min-w-[760px]" data-testid="actual-aerial-yard-map">
+            <img
+              src={`${import.meta.env.BASE_URL}sets-aerial-bay-layout.jpeg`}
+              alt="Actual aerial SETS yard map with road, yard, buildings and Plot A to Plot F labels"
+              className="block h-auto w-full select-none"
+              draggable={false}
+            />
+            {liveYardPlots.flatMap((plot) =>
+              plot.bays.map((bay) => {
+                const meta = yardStatusMeta[bay.status];
+                const isSelected = selectedBay.id === bay.id;
+                return (
+                  <button
+                    key={bay.id}
+                    type="button"
+                    onClick={() => onSelectBay(bay.id)}
+                    title={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
+                    aria-label={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
+                    className={`group absolute rounded-[5px] border transition focus:outline-none focus:ring-4 focus:ring-[#1F6FEB]/50 ${
+                      isSelected
+                        ? "border-[#1F6FEB] bg-[#1F6FEB]/20 shadow-[0_0_0_4px_rgba(31,111,235,0.35),0_0_22px_rgba(31,111,235,0.55)]"
+                        : "border-white/0 bg-white/0 hover:border-white hover:bg-white/10 hover:shadow-[0_0_0_3px_rgba(255,255,255,0.35)]"
+                    }`}
+                    style={{
+                      left: `${bay.hotspot.left}%`,
+                      top: `${bay.hotspot.top}%`,
+                      width: `${bay.hotspot.width}%`,
+                      height: `${bay.hotspot.height}%`,
+                    }}
+                  >
+                    <span
+                      className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-white shadow-sm ${
+                        isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                      }`}
+                      style={{ backgroundColor: meta.color }}
+                    />
+                  </button>
+                );
+              }),
+            )}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-bold text-white/72">
+          <span>Click the visible bay blocks on the real aerial yard image to inspect demo tanker details.</span>
+          <span className="rounded-full bg-white/10 px-3 py-1">Transparent clickable hotspots</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LiveYardDashboard({
   onNewIntake,
   onOpenRecords,
@@ -2373,7 +2435,7 @@ function LiveYardDashboard({
                   <div>
                     <SmallLabel>Live aerial bay layout</SmallLabel>
                     <h2 className="mt-2 text-2xl font-black sm:text-3xl">
-                      Steam-up and storage plots
+                      Actual aerial yard image map
                     </h2>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -2396,57 +2458,7 @@ function LiveYardDashboard({
                 </div>
               </div>
 
-              <div className="bg-[#DDE8EF] p-3 sm:p-5">
-                <div className="rounded-[24px] border border-[#A7BAC8] bg-[#172033] p-2 shadow-inner sm:p-3">
-                  <div className="overflow-x-auto rounded-[18px] border border-[#0B1F3A] bg-[#0B1F3A]">
-                    <div className="relative min-w-[760px]">
-                      <img
-                        src="./sets-aerial-bay-layout.jpeg"
-                        alt="Aerial SETS bay layout with Plot A, Plot B, Plot C, Plot D, Plot E and Plot F"
-                        className="block h-auto w-full select-none"
-                        draggable={false}
-                      />
-                      {liveYardPlots.flatMap((plot) =>
-                        plot.bays.map((bay) => {
-                          const meta = yardStatusMeta[bay.status];
-                          const isSelected = selectedBay.id === bay.id;
-                          return (
-                            <button
-                              key={bay.id}
-                              type="button"
-                              onClick={() => setSelectedBayId(bay.id)}
-                              title={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
-                              aria-label={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
-                              className={`group absolute rounded-[5px] border transition focus:outline-none focus:ring-4 focus:ring-[#1F6FEB]/50 ${
-                                isSelected
-                                  ? "border-[#1F6FEB] bg-[#1F6FEB]/20 shadow-[0_0_0_4px_rgba(31,111,235,0.35),0_0_22px_rgba(31,111,235,0.55)]"
-                                  : "border-white/0 bg-white/0 hover:border-white hover:bg-white/10 hover:shadow-[0_0_0_3px_rgba(255,255,255,0.35)]"
-                              }`}
-                              style={{
-                                left: `${bay.hotspot.left}%`,
-                                top: `${bay.hotspot.top}%`,
-                                width: `${bay.hotspot.width}%`,
-                                height: `${bay.hotspot.height}%`,
-                              }}
-                            >
-                              <span
-                                className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-white shadow-sm ${
-                                  isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                                }`}
-                                style={{ backgroundColor: meta.color }}
-                              />
-                            </button>
-                          );
-                        }),
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-bold text-white/72">
-                    <span>Click a bay block on the aerial image to inspect demo tanker details.</span>
-                    <span className="rounded-full bg-white/10 px-3 py-1">Responsive percentage hotspots</span>
-                  </div>
-                </div>
-              </div>
+              <AerialMap selectedBay={selectedBay} onSelectBay={setSelectedBayId} />
             </SectionCard>
 
             <SectionCard className="p-4 sm:p-5">
