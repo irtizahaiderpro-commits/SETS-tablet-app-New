@@ -2858,6 +2858,12 @@ function LiveYardDashboard({
         right={
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone="warn">WIP Prototype / Demo Data</Pill>
+            <a
+              href={`${import.meta.env.BASE_URL}gate-lookup.html`}
+              className="rounded-2xl bg-[#1F6FEB] px-4 py-3 text-xs font-black text-white shadow-sm"
+            >
+              Gate Scan / Lookup
+            </a>
             <button
               onClick={onNewIntake}
               className="rounded-2xl bg-[#0B1F3A] px-4 py-3 text-xs font-black text-white shadow-sm"
@@ -3135,6 +3141,12 @@ function LiveYardDashboard({
             <SectionCard className="p-5">
               <SmallLabel>Existing mockup screens</SmallLabel>
               <div className="mt-4 grid gap-2">
+                <a
+                  href={`${import.meta.env.BASE_URL}gate-lookup.html`}
+                  className="rounded-2xl bg-[#1F6FEB] px-4 py-3 text-left text-sm font-black text-white"
+                >
+                  Gate Scan / Lookup
+                </a>
                 <button
                   onClick={onNewIntake}
                   className="rounded-2xl bg-[#0B1F3A] px-4 py-3 text-left text-sm font-black text-white"

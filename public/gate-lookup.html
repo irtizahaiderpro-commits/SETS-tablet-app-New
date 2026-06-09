@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SETS Gate Scan / Booking Lookup</title>
+    <link rel="icon" type="image/png" href="./sets-logo.png" />
+    <link rel="stylesheet" href="./gate-lookup.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="./sets-logo.png" alt="SETS" />
+        <div>
+          <p class="eyebrow">SETS WIP prototype / demo data</p>
+          <h1>Gate Scan / Booking Lookup</h1>
+          <p class="subtitle">
+            Match arriving tankers to the correct steam-up booking without manually searching paperwork.
+          </p>
+        </div>
+      </div>
+      <a class="back-link" href="./">← Back to Live Yard Dashboard</a>
+    </header>
+
+    <main class="page">
+      <section class="card lookup-card">
+        <div class="hero-panel">
+          <p class="eyebrow light">Gateman tablet workflow</p>
+          <h2>Scan, enter, or search the arriving tanker</h2>
+          <p>
+            Use the trailer registration, tanker unit number, or job number. Manual entry remains available
+            if future camera/OCR scanning fails.
+          </p>
+        </div>
+
+        <div class="lookup-body">
+          <div class="field-block">
+            <label for="lookupInput">Trailer registration / tanker unit / job number</label>
+            <div class="lookup-row">
+              <input id="lookupInput" value="256791" autocomplete="off" />
+              <button id="pullBtn" class="primary-btn">Pull Booking</button>
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <button class="action-button blue" data-fill="PCVU 256791-3">
+              <strong>Scan / Enter Reg</strong>
+              <span>Demo scan fills sample tanker unit</span>
+            </button>
+            <button class="action-button orange" data-fill="256791">
+              <strong>Enter Tanker Unit</strong>
+              <span>Manual tanker unit lookup</span>
+            </button>
+            <button class="action-button" id="photoBtn">
+              <strong>Take Plate Photo Demo</strong>
+              <span>No real camera/OCR yet</span>
+            </button>
+            <button class="action-button dark" data-fill="3665828">
+              <strong>Manual Search</strong>
+              <span>Search by job number</span>
+            </button>
+          </div>
+
+          <div id="statusBox" class="status-box" aria-live="polite"></div>
+
+          <div class="demo-note">
+            Demo only: real camera scan/OCR will be connected later. Manual entry remains available.
+          </div>
+
+          <div class="recent-block">
+            <div class="section-heading">
+              <p class="eyebrow">Recent expected arrivals</p>
+              <span>Tap one to simulate lookup</span>
+            </div>
+            <div class="arrival-list">
+              <button class="arrival-card" data-fill="256791">
+                <strong>256791 / PCVU 256791-3</strong>
+                <span>Den Hartogh • PEG 8000E • required 105°C</span>
+              </button>
+              <button class="arrival-card" data-fill="3665828">
+                <strong>Job 3665828</strong>
+                <span>Steam-up instruction already received</span>
+              </button>
+              <button class="arrival-card" data-fill="PCVU 256791-3">
+                <strong>PCVU 256791-3</strong>
+                <span>Expected today • pickup pending</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card booking-card">
+        <div id="emptyState" class="empty-state">
+          <div>
+            <p class="eyebrow">Awaiting lookup</p>
+            <h2>No booking pulled yet</h2>
+            <p>Enter or tap <strong>256791</strong>, <strong>PCVU 256791-3</strong>, or <strong>3665828</strong>.</p>
+          </div>
+        </div>
+
+        <article id="bookingResult" class="booking-result">
+          <div class="booking-header">
+            <p class="eyebrow light">Matched steam-up booking</p>
+            <h2>Den Hartogh Liquid Logistics BV</h2>
+            <p>The paper steam-up instruction has been turned into a digital booking card linked to this tanker.</p>
+          </div>
+
+          <dl class="booking-details">
+            <div><dt>Tank Unit</dt><dd>256791 / PCVU 256791-3</dd></div>
+            <div><dt>Job Number</dt><dd>3665828</dd></div>
+            <div class="wide"><dt>Product</dt><dd>Carbowax Polyethylene Glycol 8000E Molten (Inhibited)</dd></div>
+            <div><dt>Quantity</dt><dd>21,844.00 kgs / 20,903.35 ltr</dd></div>
+            <div><dt>Required Product Temperature</dt><dd>105°C</dd></div>
+            <div><dt>Maximum Contact Temperature</dt><dd>140°C</dd></div>
+            <div><dt>IMO / UN Number</dt><dd>9 / 3257</dd></div>
+            <div class="wide"><dt>Route</dt><dd>Stanford-le-Hope, Essex SS17 9DY → Dagenham</dd></div>
+          </dl>
+
+          <section class="instructions">
+            <h3>Instruction summary</h3>
+            <ul>
+              <li>Make sure there is no water inside steam coils.</li>
+              <li>Start pressure steam at maximum 2 bar.</li>
+              <li>After steaming, steam coils must be empty of water.</li>
+              <li>Actual product temperature should be sent daily by email.</li>
+            </ul>
+          </section>
+
+          <div id="resultLog" class="result-log"></div>
+
+          <section id="driverDemo" class="driver-demo">
+            <p class="eyebrow">Driver confirmation demo</p>
+            <h3>Driver name and signature</h3>
+            <input placeholder="Driver name" />
+            <div class="signature-box">Driver signs on tablet here</div>
+          </section>
+
+          <div class="next-actions">
+            <button class="next-button dark" data-action="Tanker, customer and product confirmed.">
+              Confirm tanker/customer/product
+            </button>
+            <button class="next-button blue" data-action="Driver name/signature panel opened." data-driver="1">
+              Continue to driver name/signature
+            </button>
+            <button class="next-button" data-action="Tanker assigned to storage queue.">
+              Assign to storage
+            </button>
+            <button class="next-button orange" data-action="Tanker sent straight to steam/heat.">
+              Send straight to steam/heat
+            </button>
+            <button class="next-button red" data-action="Issue/mismatch flagged for supervisor.">
+              Flag issue / mismatch
+            </button>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="./gate-lookup.js"></script>
+  </body>
+</html>
