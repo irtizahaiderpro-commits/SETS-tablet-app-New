@@ -2028,12 +2028,20 @@ type YardBay = {
   plot: string;
   bayNumber: number;
   status: YardBayStatus;
+  hotspot: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
   customer?: string;
   tankUnit?: string;
   jobNumber?: string;
   product?: string;
   requiredTemperature?: string;
   maximumContactTemperature?: string;
+  currentTemperature?: string;
+  readyForCollection?: boolean;
 };
 
 type YardPlot = {
@@ -2100,7 +2108,35 @@ const yardStatusMeta: Record<
   },
 };
 
-function createYardPlot(id: string, booked: number, available: number): YardPlot {
+type HotspotGrid = {
+  left: number;
+  top: number;
+  columns: number;
+  cellWidth: number;
+  cellHeight: number;
+  gapX: number;
+  gapY: number;
+};
+
+function createHotspots(count: number, grid: HotspotGrid) {
+  return Array.from({ length: count }, (_, index) => {
+    const column = index % grid.columns;
+    const row = Math.floor(index / grid.columns);
+    return {
+      left: grid.left + column * (grid.cellWidth + grid.gapX),
+      top: grid.top + row * (grid.cellHeight + grid.gapY),
+      width: grid.cellWidth,
+      height: grid.cellHeight,
+    };
+  });
+}
+
+function createYardPlot(
+  id: string,
+  booked: number,
+  available: number,
+  hotspotGrid: HotspotGrid,
+): YardPlot {
   const statusCycle: YardBayStatus[] = [
     "booked",
     "occupied",
@@ -2115,6 +2151,7 @@ function createYardPlot(id: string, booked: number, available: number): YardPlot
     ...Array.from({ length: booked }, (_, index) => statusCycle[index % statusCycle.length]),
     ...Array.from({ length: available }, () => "available" as YardBayStatus),
   ];
+  const hotspots = createHotspots(bayStatuses.length, hotspotGrid);
   return {
     id,
     booked,
@@ -2124,22 +2161,81 @@ function createYardPlot(id: string, booked: number, available: number): YardPlot
       plot: id,
       bayNumber: index + 1,
       status,
+      hotspot: hotspots[index],
       ...(status === "available"
-        ? {}
+        ? {
+            currentTemperature: "Ambient",
+            readyForCollection: false,
+          }
         : {
             ...denHartoghBooking,
+            currentTemperature:
+              status === "steam"
+                ? "92\u00B0C and rising"
+                : status === "ready"
+                  ? "105\u00B0C target reached"
+                  : "Awaiting heat check",
+            readyForCollection: status === "ready",
           }),
     })),
   };
 }
 
 const liveYardPlots: YardPlot[] = [
-  createYardPlot("Plot A", 6, 2),
-  createYardPlot("Plot B", 12, 4),
-  createYardPlot("Plot C", 7, 2),
-  createYardPlot("Plot D", 11, 4),
-  createYardPlot("Plot E", 9, 5),
-  createYardPlot("Plot F", 24, 11),
+  createYardPlot("Plot A", 6, 2, {
+    left: 5.9,
+    top: 74.8,
+    columns: 2,
+    cellWidth: 2.8,
+    cellHeight: 2.05,
+    gapX: 0.9,
+    gapY: 1.0,
+  }),
+  createYardPlot("Plot B", 12, 4, {
+    left: 15.35,
+    top: 70.35,
+    columns: 4,
+    cellWidth: 2.15,
+    cellHeight: 3.2,
+    gapX: 0.85,
+    gapY: 0.9,
+  }),
+  createYardPlot("Plot C", 7, 2, {
+    left: 15.3,
+    top: 57.45,
+    columns: 3,
+    cellWidth: 1.55,
+    cellHeight: 2.65,
+    gapX: 0.7,
+    gapY: 0.9,
+  }),
+  createYardPlot("Plot D", 11, 4, {
+    left: 34.7,
+    top: 42.75,
+    columns: 6,
+    cellWidth: 4.2,
+    cellHeight: 2.05,
+    gapX: 0.55,
+    gapY: 1.0,
+  }),
+  createYardPlot("Plot E", 9, 5, {
+    left: 63.25,
+    top: 9.45,
+    columns: 2,
+    cellWidth: 1.35,
+    cellHeight: 3.05,
+    gapX: 0.9,
+    gapY: 1.0,
+  }),
+  createYardPlot("Plot F", 24, 11, {
+    left: 24.0,
+    top: 86.65,
+    columns: 9,
+    cellWidth: 3.45,
+    cellHeight: 1.8,
+    gapX: 0.65,
+    gapY: 0.75,
+  }),
 ];
 
 const liveYardSummary = [
@@ -2301,79 +2397,53 @@ function LiveYardDashboard({
               </div>
 
               <div className="bg-[#DDE8EF] p-3 sm:p-5">
-                <div className="rounded-[24px] border border-[#A7BAC8] bg-[linear-gradient(135deg,_#C9D6DE_0%,_#E7EEF2_48%,_#B9C8D1_100%)] p-3 shadow-inner sm:p-5">
-                  <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                    {liveYardPlots.map((plot) => {
-                      const counts = countPlotStatuses(plot);
-                      const isSelected = plot.id === selectedPlot.id;
-                      return (
-                        <button
-                          key={plot.id}
-                          onClick={() => setSelectedBayId(plot.bays[0].id)}
-                          className={`rounded-[24px] border p-3 text-left shadow-sm transition ${
-                            isSelected
-                              ? "border-[#1F6FEB] bg-white ring-4 ring-[#BFDBFE]"
-                              : "border-[#B6C6D2] bg-white/80 hover:border-[#1F6FEB]"
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#64748B]">
-                                {plot.id}
-                              </p>
-                              <h3 className="mt-1 text-xl font-black text-[#172033]">
-                                {plot.booked} booked / {plot.available} available
-                              </h3>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1 text-center text-[10px] font-black">
-                              <span className="rounded-lg bg-[#FFFBEB] px-2 py-1 text-[#B45309]">
-                                B {plot.booked}
-                              </span>
-                              <span className="rounded-lg bg-[#F5F3FF] px-2 py-1 text-[#6D28D9]">
-                                O {counts.occupiedTotal}
-                              </span>
-                              <span className="rounded-lg bg-[#F8FAFC] px-2 py-1 text-[#334155]">
-                                A {plot.available}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5 xl:grid-cols-6">
-                            {plot.bays.map((bay) => {
-                              const meta = yardStatusMeta[bay.status];
-                              return (
-                                <span
-                                  key={bay.id}
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setSelectedBayId(bay.id);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter" || event.key === " ") {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      setSelectedBayId(bay.id);
-                                    }
-                                  }}
-                                  title={`${plot.id} Bay ${bay.bayNumber}: ${meta.label}`}
-                                  className={`flex aspect-square min-h-12 items-center justify-center rounded-xl border text-[11px] font-black shadow-sm transition hover:scale-105 ${
-                                    selectedBay.id === bay.id ? "ring-4 ring-[#1F6FEB]/30" : ""
-                                  }`}
-                                  style={{
-                                    backgroundColor: meta.color,
-                                    borderColor: meta.border,
-                                    color: meta.text,
-                                  }}
-                                >
-                                  {bay.bayNumber}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </button>
-                      );
-                    })}
+                <div className="rounded-[24px] border border-[#A7BAC8] bg-[#172033] p-2 shadow-inner sm:p-3">
+                  <div className="overflow-x-auto rounded-[18px] border border-[#0B1F3A] bg-[#0B1F3A]">
+                    <div className="relative min-w-[760px]">
+                      <img
+                        src="./sets-aerial-bay-layout.jpeg"
+                        alt="Aerial SETS bay layout with Plot A, Plot B, Plot C, Plot D, Plot E and Plot F"
+                        className="block h-auto w-full select-none"
+                        draggable={false}
+                      />
+                      {liveYardPlots.flatMap((plot) =>
+                        plot.bays.map((bay) => {
+                          const meta = yardStatusMeta[bay.status];
+                          const isSelected = selectedBay.id === bay.id;
+                          return (
+                            <button
+                              key={bay.id}
+                              type="button"
+                              onClick={() => setSelectedBayId(bay.id)}
+                              title={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
+                              aria-label={`${bay.plot} Bay ${bay.bayNumber}: ${meta.label}`}
+                              className={`group absolute rounded-[5px] border transition focus:outline-none focus:ring-4 focus:ring-[#1F6FEB]/50 ${
+                                isSelected
+                                  ? "border-[#1F6FEB] bg-[#1F6FEB]/20 shadow-[0_0_0_4px_rgba(31,111,235,0.35),0_0_22px_rgba(31,111,235,0.55)]"
+                                  : "border-white/0 bg-white/0 hover:border-white hover:bg-white/10 hover:shadow-[0_0_0_3px_rgba(255,255,255,0.35)]"
+                              }`}
+                              style={{
+                                left: `${bay.hotspot.left}%`,
+                                top: `${bay.hotspot.top}%`,
+                                width: `${bay.hotspot.width}%`,
+                                height: `${bay.hotspot.height}%`,
+                              }}
+                            >
+                              <span
+                                className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-white shadow-sm ${
+                                  isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                }`}
+                                style={{ backgroundColor: meta.color }}
+                              />
+                            </button>
+                          );
+                        }),
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-bold text-white/72">
+                    <span>Click a bay block on the aerial image to inspect demo tanker details.</span>
+                    <span className="rounded-full bg-white/10 px-3 py-1">Responsive percentage hotspots</span>
                   </div>
                 </div>
               </div>
@@ -2474,6 +2544,14 @@ function LiveYardDashboard({
                         "Maximum contact temperature",
                         selectedBay.maximumContactTemperature ||
                           denHartoghBooking.maximumContactTemperature,
+                      ],
+                      [
+                        "Current temperature/status",
+                        selectedBay.currentTemperature || "Awaiting heat check",
+                      ],
+                      [
+                        "Ready for collection",
+                        selectedBay.readyForCollection ? "Yes" : "No",
                       ],
                       ["Current bay status", selectedStatus.label],
                     ].map(([label, value]) => (
