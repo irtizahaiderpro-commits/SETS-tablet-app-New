@@ -2508,6 +2508,30 @@ function HotspotEditorPanel({
   );
 }
 
+function HotspotEditorToggle({
+  active,
+  onClick,
+  className = "",
+}: {
+  active: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl px-4 py-3 text-xs font-black shadow-sm transition hover:-translate-y-0.5 ${
+        active
+          ? "bg-[#F59E0B] text-white shadow-[#F59E0B]/25"
+          : "border border-[#FDE68A] bg-[#FFFBEB] text-[#92400E] hover:bg-white"
+      } ${className}`}
+    >
+      {active ? "Exit Hotspot Editor" : "Edit Hotspots"}
+    </button>
+  );
+}
+
 function LiveYardDashboard({
   onNewIntake,
   onOpenRecords,
@@ -2522,7 +2546,13 @@ function LiveYardDashboard({
   const [hotspots, setHotspots] = useState<AerialHotspot[]>(() =>
     loadAerialHotspots(),
   );
-  const [editHotspots, setEditHotspots] = useState(false);
+  const [editHotspots, setEditHotspots] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("editHotspots") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [exportJson, setExportJson] = useState("");
   const [importJson, setImportJson] = useState("");
   const liveYardPlots = useMemo(() => createYardPlots(hotspots), [hotspots]);
@@ -2546,6 +2576,7 @@ function LiveYardDashboard({
     "Departed",
   ];
   const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedBay.id);
+  const toggleHotspotEditor = () => setEditHotspots((value) => !value);
 
   useEffect(() => {
     if (!hotspots.some((hotspot) => hotspot.id === selectedBayId)) {
@@ -2695,16 +2726,16 @@ function LiveYardDashboard({
                     </h2>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => setEditHotspots((value) => !value)}
-                      className={`rounded-2xl px-4 py-2 text-xs font-black shadow-sm ${
-                        editHotspots
-                          ? "bg-[#F59E0B] text-white"
-                          : "border border-white/20 bg-white/10 text-white"
-                      }`}
-                    >
-                      {editHotspots ? "Exit Hotspot Editor" : "Edit Hotspots"}
-                    </button>
+                    <HotspotEditorToggle
+                      active={editHotspots}
+                      onClick={toggleHotspotEditor}
+                      className="min-w-[158px]"
+                    />
+                    {editHotspots && (
+                      <span className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-xs font-black text-[#92400E] shadow-sm">
+                        HOTSPOT EDITOR MODE ACTIVE
+                      </span>
+                    )}
                     {Object.entries(yardStatusMeta).map(([key, meta]) => (
                       <span
                         key={key}
@@ -2792,10 +2823,22 @@ function LiveYardDashboard({
                       {selectedBay.plot} / Bay {selectedBay.bayNumber}
                     </h2>
                   </div>
-                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">
-                    {selectedStatus.shortLabel}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">
+                      {selectedStatus.shortLabel}
+                    </span>
+                    <HotspotEditorToggle
+                      active={editHotspots}
+                      onClick={toggleHotspotEditor}
+                      className="min-w-[158px]"
+                    />
+                  </div>
                 </div>
+                {editHotspots && (
+                  <div className="mt-4 rounded-2xl border border-white/30 bg-white/20 px-4 py-3 text-xs font-black text-white">
+                    HOTSPOT EDITOR MODE ACTIVE
+                  </div>
+                )}
               </div>
               <div className="space-y-4 p-5">
                 <div className="grid grid-cols-3 gap-2 text-center">
