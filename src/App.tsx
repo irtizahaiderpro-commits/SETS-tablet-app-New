@@ -2874,7 +2874,7 @@ function LiveYardDashboard({
         }
       />
       <div className="flex-1 overflow-auto bg-[#EEF4F8]">
-        <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5 xl:grid-cols-[minmax(0,1fr)_410px]">
+        <div className="space-y-4 p-3 sm:p-4 lg:p-5">
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {liveYardSummary.map((item) => {
