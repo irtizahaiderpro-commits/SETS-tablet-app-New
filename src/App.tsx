@@ -14,6 +14,7 @@ import {
   QrCode,
   Save,
   Search,
+  Settings,
   ShieldAlert,
   Thermometer,
   Truck,
@@ -40,6 +41,7 @@ import {
 
 type Screen =
   | "liveYard"
+  | "yardMap"
   | "home"
   | "service"
   | "lookupSelect"
@@ -2172,29 +2174,26 @@ function createYardPlots(hotspots: AerialHotspot[]): YardPlot[] {
   });
 }
 
-const liveYardSummary = [
-  { label: "Expected arrivals today", value: 18, icon: CalendarDays, tone: "blue" },
-  { label: "Arrived", value: 11, icon: Truck, tone: "purple" },
-  { label: "In storage", value: 17, icon: Warehouse, tone: "indigo" },
-  { label: "On steam/heat", value: 9, icon: Flame, tone: "red" },
-  { label: "Ready for collection", value: 6, icon: CheckCircle2, tone: "green" },
-  { label: "Available steaming bays today", value: 28, icon: MapPinned, tone: "slate" },
-  { label: "Available tomorrow", value: 10, icon: CalendarDays, tone: "amber" },
-  { label: "Data issues", value: 3, icon: AlertTriangle, tone: "dark" },
+const yardControlKpis = [
+  { label: "Total Capacity", value: 194, unit: "spaces", icon: Warehouse, accent: "#1D4ED8" },
+  { label: "Tanks on Site", value: 137, unit: "tanks", icon: Truck, accent: "#6D28D9" },
+  { label: "Available Spaces", value: 57, unit: "spaces", icon: MapPinned, accent: "#334155" },
+  { label: "Heating", value: 52, unit: "tanks", icon: Flame, accent: "#B91C1C" },
+  { label: "Storage", value: 41, unit: "tanks", icon: Warehouse, accent: "#4338CA" },
+  { label: "Ready", value: 21, unit: "tanks", icon: CheckCircle2, accent: "#15803D" },
+  { label: "Data Issues", value: 5, unit: "tanks", icon: AlertTriangle, accent: "#B45309" },
 ];
 
-const liveYardWorkflow = [
-  "Steam-up booking received",
-  "Tanker arrives",
-  "Gateman scans/enters trailer registration or tanker unit number",
-  "App pulls correct steam-up form",
-  "Gateman confirms tanker/customer/product",
-  "Driver enters name and signs on screen",
-  "Tanker assigned to storage or steam/heating bay",
-  "Temperature tracked until target reached",
-  "Customer informed when ready for pickup",
-  "Tanker collected/departed and bay becomes available again",
+const capacityByStatus = [
+  { name: "Heating", value: 52, color: "#DC2626" },
+  { name: "Storage", value: 41, color: "#7C3AED" },
+  { name: "Waiting Steam", value: 18, color: "#F59E0B" },
+  { name: "Ready", value: 21, color: "#16A34A" },
+  { name: "Data Issues", value: 5, color: "#1F2937" },
+  { name: "Available", value: 57, color: "#CBD5E1" },
 ];
+
+const yardCapacityTotal = capacityByStatus.reduce((sum, item) => sum + item.value, 0);
 
 function countPlotStatuses(plot: YardPlot) {
   const counts = plot.bays.reduce(
@@ -2667,15 +2666,13 @@ function HotspotEditorToggle({
   );
 }
 
-function LiveYardDashboard({
+function YardMapDetail({
+  onBack,
   onNewIntake,
-  onOpenRecords,
-  onOpenLegacyDashboard,
   onOpenHome,
 }: {
+  onBack: () => void;
   onNewIntake: () => void;
-  onOpenRecords: () => void;
-  onOpenLegacyDashboard: () => void;
   onOpenHome: () => void;
 }) {
   const [hotspots, setHotspots] = useState<AerialHotspot[]>(() =>
@@ -2852,12 +2849,13 @@ function LiveYardDashboard({
   return (
     <>
       <AppHeader
-        title="SETS Live Yard Dashboard"
-        subtitle="Live yard view for steam-up bookings, tanker arrivals, bay availability, heating status and customer capacity planning."
+        title="Yard Map Detail"
+        subtitle="Actual aerial yard image with live bay status, clickable hotspots and bay details."
+        onBack={onBack}
         onHome={onOpenHome}
         right={
           <div className="flex flex-wrap items-center gap-2">
-            <Pill tone="warn">WIP Prototype / Demo Data</Pill>
+            <BackToDashboardButton onClick={onBack} />
             <a
               href={`${import.meta.env.BASE_URL}gate-lookup.html`}
               className="rounded-2xl bg-[#1F6FEB] px-4 py-3 text-xs font-black text-white shadow-sm"
@@ -2876,38 +2874,6 @@ function LiveYardDashboard({
       <div className="flex-1 overflow-auto bg-[#EEF4F8]">
         <div className="space-y-4 p-3 sm:p-4 lg:p-5">
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {liveYardSummary.map((item) => {
-                const Icon = item.icon;
-                const toneClasses: Record<string, string> = {
-                  blue: "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]",
-                  purple: "border-[#DDD6FE] bg-[#F5F3FF] text-[#6D28D9]",
-                  indigo: "border-[#C7D2FE] bg-[#EEF2FF] text-[#4338CA]",
-                  red: "border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]",
-                  green: "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]",
-                  slate: "border-[#CBD5E1] bg-white text-[#334155]",
-                  amber: "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]",
-                  dark: "border-[#CBD5E1] bg-[#172033] text-white",
-                };
-                return (
-                  <button
-                    key={item.label}
-                    className={`min-h-[116px] rounded-[22px] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${toneClasses[item.tone]}`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[11px] font-black uppercase leading-4 tracking-[0.12em]">
-                        {item.label}
-                      </span>
-                      <Icon className="h-6 w-6 shrink-0" />
-                    </div>
-                    <p className="mt-4 text-4xl font-black leading-none">
-                      {item.value}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
             <SectionCard className="overflow-hidden rounded-[26px] border-[#CAD7E4]">
               <div className="border-b border-[#DCE6F0] bg-[linear-gradient(135deg,_#102A43_0%,_#21506F_55%,_#3B5566_100%)] p-5 text-white">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3110,38 +3076,277 @@ function LiveYardDashboard({
               </div>
             </SectionCard>
 
-            <SectionCard className="p-4 sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <SmallLabel>Steam-up workflow</SmallLabel>
-                  <h2 className="mt-2 text-2xl font-black text-[#172033]">
-                    From paper form to yard action
-                  </h2>
-                </div>
-                <Pill tone="blue">Manual demo flow</Pill>
-              </div>
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {liveYardWorkflow.map((step, index) => (
-                  <div
-                    key={step}
-                    className="grid grid-cols-[44px_1fr] items-center gap-3 rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-3"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B1F3A] text-sm font-black text-white">
-                      {index + 1}
-                    </span>
-                    <p className="text-sm font-black leading-5 text-[#172033]">
-                      {step}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
           </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
-          <aside className="space-y-4">
+function LiveYardDashboard({
+  onNewIntake,
+  onOpenRecords,
+  onOpenLegacyDashboard,
+  onOpenHome,
+  onOpenYardMap,
+}: {
+  onNewIntake: () => void;
+  onOpenRecords: () => void;
+  onOpenLegacyDashboard: () => void;
+  onOpenHome: () => void;
+  onOpenYardMap: () => void;
+}) {
+  const plots = useMemo(() => createYardPlots(defaultAerialHotspots), []);
+  const sidebarItems: Array<{
+    label: string;
+    icon: ReactNode;
+    active?: boolean;
+    badge?: string;
+    onClick: () => void;
+  }> = [
+    { label: "Dashboard", icon: <BarChart3 className="h-5 w-5" />, active: true, onClick: () => undefined },
+    { label: "Plots", icon: <MapPinned className="h-5 w-5" />, onClick: onOpenYardMap },
+    { label: "Tanks", icon: <Truck className="h-5 w-5" />, onClick: onOpenYardMap },
+    { label: "Bookings", icon: <CalendarDays className="h-5 w-5" />, onClick: onOpenRecords },
+    { label: "Steam", icon: <Flame className="h-5 w-5" />, onClick: onOpenYardMap },
+    { label: "Reports", icon: <FileText className="h-5 w-5" />, onClick: onOpenRecords },
+    { label: "Alarms", icon: <AlertTriangle className="h-5 w-5" />, badge: "Demo", onClick: () => undefined },
+    { label: "Settings", icon: <Settings className="h-5 w-5" />, badge: "Demo", onClick: () => undefined },
+  ];
+
+  return (
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      <aside className="hidden w-60 shrink-0 flex-col bg-[#0B1F3A] text-white lg:flex">
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+          <div className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xl bg-white px-2">
+            <img src="./sets-logo.png" alt="SETS logo" className="max-h-8 max-w-full object-contain" />
+          </div>
+          <span className="text-sm font-black tracking-[0.08em]">YARD CONTROL</span>
+        </div>
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+          {sidebarItems.map((item) => (
+            <SidebarButton
+              key={item.label}
+              icon={item.icon}
+              label={item.label}
+              badge={item.badge}
+              active={item.active}
+              onClick={item.onClick}
+            />
+          ))}
+        </nav>
+        <div className="border-t border-white/10 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1F6FEB] text-xs font-black">
+              DU
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black">Demo User</p>
+              <p className="truncate text-[11px] font-bold text-white/55">Office view</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="border-b border-[#D6DEE8] bg-white px-3 py-3 sm:px-4 lg:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-20 shrink-0 items-center justify-center rounded-2xl border border-[#D6DEE8] bg-white px-2 shadow-sm lg:hidden">
+                <img src="./sets-logo.png" alt="SETS logo" className="max-h-9 max-w-full object-contain" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg font-black leading-tight text-[#172033] sm:text-xl lg:text-2xl">
+                  SETS Yard Control
+                </h1>
+                <p className="text-xs font-semibold text-[#64748B] sm:text-sm">Yard Dashboard</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={`${import.meta.env.BASE_URL}gate-lookup.html`}
+                className="rounded-2xl bg-[#1F6FEB] px-4 py-3 text-xs font-black text-white shadow-sm"
+              >
+                Gate Scan / Lookup
+              </a>
+              <button
+                onClick={onNewIntake}
+                className="rounded-2xl bg-[#0B1F3A] px-4 py-3 text-xs font-black text-white shadow-sm"
+              >
+                New Intake
+              </button>
+              <button
+                onClick={onOpenHome}
+                className="flex h-10 items-center gap-2 rounded-2xl border border-[#D6DEE8] bg-white px-3 text-xs font-black text-[#172033] shadow-sm hover:border-[#1F6FEB] sm:h-11 sm:px-4"
+              >
+                <Home className="h-4 w-4" /> Home
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] font-bold text-[#64748B] sm:text-xs">
+            Demo office view — example data only | Capacities shown include 2-high stacking.
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-[#EEF4F8]">
+          <div className="space-y-4 p-3 sm:p-4 lg:p-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+              {yardControlKpis.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <SectionCard key={item.label} className="p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black uppercase leading-4 tracking-[0.1em] text-[#64748B]">
+                        {item.label}
+                      </span>
+                      <Icon className="h-5 w-5 shrink-0" style={{ color: item.accent }} />
+                    </div>
+                    <p className="mt-3 text-3xl font-black leading-none text-[#172033]">
+                      {item.value}
+                    </p>
+                    <p className="mt-1 text-[11px] font-bold text-[#94A3B8]">{item.unit}</p>
+                  </SectionCard>
+                );
+              })}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <SectionCard className="p-5">
+                <SmallLabel>Capacity by status</SmallLabel>
+                <h2 className="mt-2 text-2xl font-black text-[#172033]">
+                  {yardCapacityTotal} spaces across the yard
+                </h2>
+                <div className="mt-4 grid items-center gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
+                  <div className="relative mx-auto h-[220px] w-full max-w-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={capacityByStatus}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius="48%"
+                          outerRadius="78%"
+                          paddingAngle={1.5}
+                          stroke="#FFFFFF"
+                          strokeWidth={3}
+                          isAnimationActive={false}
+                        >
+                          {capacityByStatus.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <p className="text-3xl font-black text-[#172033]">{yardCapacityTotal}</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">
+                        spaces
+                      </p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2">
+                    {capacityByStatus.map((entry) => (
+                      <li
+                        key={entry.name}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FBFE] px-3 py-2"
+                      >
+                        <span className="flex items-center gap-2 text-xs font-black text-[#172033]">
+                          <span
+                            className="h-3 w-3 shrink-0 rounded-sm"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          {entry.name}
+                        </span>
+                        <span className="text-sm font-black text-[#172033]">{entry.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </SectionCard>
+
+              <SectionCard className="overflow-hidden">
+                <div className="p-5 pb-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <SmallLabel>Yard map</SmallLabel>
+                      <h2 className="mt-2 text-2xl font-black text-[#172033]">
+                        Aerial yard overview
+                      </h2>
+                    </div>
+                    <Pill tone="blue">Click to inspect bays</Pill>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenYardMap}
+                  aria-label="Open yard map detail view"
+                  className="group relative block w-full px-5 pb-5 text-left focus:outline-none"
+                >
+                  <span className="block overflow-hidden rounded-[18px] border border-[#A7BAC8] bg-[#0B1F3A]">
+                    <img
+                      src={`${import.meta.env.BASE_URL}sets-aerial-bay-layout.jpeg`}
+                      alt="Aerial SETS yard overview — click to open the detailed yard map"
+                      className="block h-auto w-full select-none transition group-hover:scale-[1.01] group-hover:opacity-95"
+                      draggable={false}
+                    />
+                  </span>
+                  <span className="pointer-events-none absolute bottom-9 left-1/2 -translate-x-1/2 rounded-2xl bg-[#0B1F3A]/90 px-4 py-2 text-xs font-black text-white opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                    Open Yard Map Detail
+                  </span>
+                </button>
+              </SectionCard>
+            </div>
+
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SmallLabel>Plot occupancy</SmallLabel>
+                <button
+                  onClick={onOpenYardMap}
+                  className="text-xs font-black text-[#1F6FEB] hover:underline"
+                >
+                  View on yard map
+                </button>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {plots.map((plot) => {
+                  const total = plot.bays.length;
+                  const occupancy = total ? Math.round((plot.booked / total) * 100) : 0;
+                  return (
+                    <SectionCard key={plot.id} className="p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-black text-[#172033]">{plot.id}</p>
+                        <span className="text-xs font-black text-[#64748B]">{occupancy}%</span>
+                      </div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
+                        <div
+                          className="h-full rounded-full bg-[#1F6FEB]"
+                          style={{ width: `${occupancy}%` }}
+                        />
+                      </div>
+                      <dl className="mt-3 space-y-1 text-[11px] font-bold text-[#64748B]">
+                        <div className="flex justify-between">
+                          <dt>Total spaces</dt>
+                          <dd className="font-black text-[#172033]">{total}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Filled</dt>
+                          <dd className="font-black text-[#172033]">{plot.booked}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Available</dt>
+                          <dd className="font-black text-[#15803D]">{plot.available}</dd>
+                        </div>
+                      </dl>
+                    </SectionCard>
+                  );
+                })}
+              </div>
+            </div>
+
             <SectionCard className="p-5">
               <SmallLabel>Existing mockup screens</SmallLabel>
-              <div className="mt-4 grid gap-2">
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 <a
                   href={`${import.meta.env.BASE_URL}gate-lookup.html`}
                   className="rounded-2xl bg-[#1F6FEB] px-4 py-3 text-left text-sm font-black text-white"
@@ -3168,10 +3373,10 @@ function LiveYardDashboard({
                 </button>
               </div>
             </SectionCard>
-          </aside>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -4613,6 +4818,15 @@ function App() {
             onNewIntake={startNewIntake}
             onOpenRecords={() => setScreen("records")}
             onOpenLegacyDashboard={() => setScreen("dashboard")}
+            onOpenHome={() => setScreen("home")}
+            onOpenYardMap={() => setScreen("yardMap")}
+          />
+        )}
+
+        {screen === "yardMap" && (
+          <YardMapDetail
+            onBack={() => setScreen("liveYard")}
+            onNewIntake={startNewIntake}
             onOpenHome={() => setScreen("home")}
           />
         )}

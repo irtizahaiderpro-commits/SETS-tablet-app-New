@@ -69,7 +69,7 @@ async function startServerIfNeeded() {
 
 async function waitForAerialImage(page) {
   const image = page.getByAltText(
-    "Actual aerial SETS yard map with road, yard, buildings and Plot A to Plot F labels",
+    "Aerial SETS yard overview — click to open the detailed yard map",
   );
   await image.waitFor({ state: "visible", timeout: 15000 });
   await image.evaluate((element) => {
@@ -97,11 +97,7 @@ async function captureDashboard() {
       });
       await page.goto(dashboardUrl, { waitUntil: "networkidle" });
       await page
-        .getByRole("heading", { name: "SETS Live Yard Dashboard" })
-        .waitFor({ state: "visible", timeout: 15000 });
-
-      await page
-        .getByTestId("actual-aerial-yard-map")
+        .getByRole("heading", { name: "SETS Yard Control" })
         .waitFor({ state: "visible", timeout: 15000 });
       await waitForAerialImage(page);
 
@@ -109,6 +105,21 @@ async function captureDashboard() {
         path: path.join(
           screenshotDir,
           `live-yard-dashboard-${viewport.name}.png`,
+        ),
+        fullPage: true,
+      });
+
+      await page
+        .getByRole("button", { name: "Open yard map detail view" })
+        .click();
+      await page
+        .getByTestId("actual-aerial-yard-map")
+        .waitFor({ state: "visible", timeout: 15000 });
+
+      await page.screenshot({
+        path: path.join(
+          screenshotDir,
+          `yard-map-detail-${viewport.name}.png`,
         ),
         fullPage: true,
       });
