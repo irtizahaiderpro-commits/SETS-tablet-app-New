@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   AlertTriangle,
   BarChart3,
+  Bell,
   CalendarDays,
   CheckCircle2,
   ClipboardPen,
@@ -3083,6 +3084,35 @@ function YardMapDetail({
   );
 }
 
+function OccupancyRing({ percent }: { percent: number }) {
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      className="h-14 w-14 shrink-0"
+      role="img"
+      aria-label={`Occupancy ${percent}%`}
+    >
+      <circle cx="32" cy="32" r={radius} fill="none" stroke="#E2E8F0" strokeWidth="6" />
+      <circle
+        cx="32"
+        cy="32"
+        r={radius}
+        fill="none"
+        stroke="#1F6FEB"
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray={`${(percent / 100) * circumference} ${circumference}`}
+        transform="rotate(-90 32 32)"
+      />
+      <text x="32" y="37" textAnchor="middle" fill="#172033" fontSize="14" fontWeight="800">
+        {percent}%
+      </text>
+    </svg>
+  );
+}
+
 function LiveYardDashboard({
   onNewIntake,
   onOpenRecords,
@@ -3104,120 +3134,153 @@ function LiveYardDashboard({
     badge?: string;
     onClick: () => void;
   }> = [
-    { label: "Dashboard", icon: <BarChart3 className="h-5 w-5" />, active: true, onClick: () => undefined },
-    { label: "Plots", icon: <MapPinned className="h-5 w-5" />, onClick: onOpenYardMap },
-    { label: "Tanks", icon: <Truck className="h-5 w-5" />, onClick: onOpenYardMap },
-    { label: "Bookings", icon: <CalendarDays className="h-5 w-5" />, onClick: onOpenRecords },
-    { label: "Steam", icon: <Flame className="h-5 w-5" />, onClick: onOpenYardMap },
-    { label: "Reports", icon: <FileText className="h-5 w-5" />, onClick: onOpenRecords },
-    { label: "Alarms", icon: <AlertTriangle className="h-5 w-5" />, badge: "Demo", onClick: () => undefined },
-    { label: "Settings", icon: <Settings className="h-5 w-5" />, badge: "Demo", onClick: () => undefined },
+    { label: "Dashboard", icon: <BarChart3 className="h-4 w-4" />, active: true, onClick: () => undefined },
+    { label: "Plots", icon: <MapPinned className="h-4 w-4" />, onClick: onOpenYardMap },
+    { label: "Tanks", icon: <Truck className="h-4 w-4" />, onClick: onOpenYardMap },
+    { label: "Bookings", icon: <CalendarDays className="h-4 w-4" />, onClick: onOpenRecords },
+    { label: "Steam", icon: <Flame className="h-4 w-4" />, onClick: onOpenYardMap },
+    { label: "Reports", icon: <FileText className="h-4 w-4" />, onClick: onOpenRecords },
+    { label: "Alarms", icon: <AlertTriangle className="h-4 w-4" />, badge: "Demo", onClick: () => undefined },
+    { label: "Settings", icon: <Settings className="h-4 w-4" />, badge: "Demo", onClick: () => undefined },
   ];
+  const today = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      <aside className="hidden w-60 shrink-0 flex-col bg-[#0B1F3A] text-white lg:flex">
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-          <div className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xl bg-white px-2">
-            <img src="./sets-logo.png" alt="SETS logo" className="max-h-8 max-w-full object-contain" />
+      <aside className="hidden w-52 shrink-0 flex-col bg-[#0B1F3A] text-white lg:flex">
+        <div className="border-b border-white/10 px-4 py-4">
+          <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-white px-2">
+            <img src="./sets-logo.png" alt="SETS logo" className="max-h-7 max-w-full object-contain" />
           </div>
-          <span className="text-sm font-black tracking-[0.08em]">YARD CONTROL</span>
+          <p className="mt-2 text-xs font-bold text-white/65">Yard Control</p>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3">
           {sidebarItems.map((item) => (
-            <SidebarButton
+            <button
               key={item.label}
-              icon={item.icon}
-              label={item.label}
-              badge={item.badge}
-              active={item.active}
               onClick={item.onClick}
-            />
+              aria-current={item.active ? "page" : undefined}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-bold transition ${
+                item.active
+                  ? "bg-[#1F6FEB] text-white"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <span className="shrink-0">{item.icon}</span>
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.badge && (
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white/55">
+                  {item.badge}
+                </span>
+              )}
+            </button>
           ))}
         </nav>
-        <div className="border-t border-white/10 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1F6FEB] text-xs font-black">
+        <div className="border-t border-white/10 px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1F6FEB] text-[11px] font-black">
               DU
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-black">Demo User</p>
-              <p className="truncate text-[11px] font-bold text-white/55">Office view</p>
+              <p className="truncate text-[13px] font-bold">Demo User</p>
+              <p className="truncate text-[10px] font-semibold text-white/50">Office view</p>
             </div>
           </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="border-b border-[#D6DEE8] bg-white px-3 py-3 sm:px-4 lg:px-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-20 shrink-0 items-center justify-center rounded-2xl border border-[#D6DEE8] bg-white px-2 shadow-sm lg:hidden">
-                <img src="./sets-logo.png" alt="SETS logo" className="max-h-9 max-w-full object-contain" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-black leading-tight text-[#172033] sm:text-xl lg:text-2xl">
-                  SETS Yard Control
-                </h1>
-                <p className="text-xs font-semibold text-[#64748B] sm:text-sm">Yard Dashboard</p>
-              </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E2E8F0] bg-white px-3 py-2.5 sm:px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-16 shrink-0 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white px-2 lg:hidden">
+              <img src="./sets-logo.png" alt="SETS logo" className="max-h-7 max-w-full object-contain" />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={`${import.meta.env.BASE_URL}gate-lookup.html`}
-                className="rounded-2xl bg-[#1F6FEB] px-4 py-3 text-xs font-black text-white shadow-sm"
-              >
-                Gate Scan / Lookup
-              </a>
-              <button
-                onClick={onNewIntake}
-                className="rounded-2xl bg-[#0B1F3A] px-4 py-3 text-xs font-black text-white shadow-sm"
-              >
-                New Intake
-              </button>
-              <button
-                onClick={onOpenHome}
-                className="flex h-10 items-center gap-2 rounded-2xl border border-[#D6DEE8] bg-white px-3 text-xs font-black text-[#172033] shadow-sm hover:border-[#1F6FEB] sm:h-11 sm:px-4"
-              >
-                <Home className="h-4 w-4" /> Home
-              </button>
+            <div className="min-w-0">
+              <h1 className="text-base font-black leading-tight text-[#0B1F3A] sm:text-lg">
+                SETS Yard Control
+              </h1>
+              <p className="text-[11px] font-bold text-[#1F6FEB] sm:text-xs">Yard Dashboard</p>
             </div>
           </div>
-          <p className="mt-2 text-[11px] font-bold text-[#64748B] sm:text-xs">
+          <p className="hidden text-[11px] font-semibold text-[#64748B] xl:block">
+            Demo office view — example data only | Capacities shown include 2-high stacking.
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <a
+              href={`${import.meta.env.BASE_URL}gate-lookup.html`}
+              className="rounded-lg bg-[#1F6FEB] px-3 py-2 text-[11px] font-black text-white"
+            >
+              Gate Scan / Lookup
+            </a>
+            <button
+              onClick={onNewIntake}
+              className="rounded-lg bg-[#0B1F3A] px-3 py-2 text-[11px] font-black text-white"
+            >
+              New Intake
+            </button>
+            <button
+              onClick={onOpenHome}
+              aria-label="Home"
+              title="Home"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white text-[#172033] hover:border-[#1F6FEB]"
+            >
+              <Home className="h-4 w-4" />
+            </button>
+            <span className="ml-1 hidden text-[11px] font-bold text-[#172033] md:block">
+              Today, {today}
+            </span>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#475569] hover:bg-[#F1F5F9]"
+            >
+              <Bell className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="w-full text-[10px] font-semibold text-[#64748B] xl:hidden">
             Demo office view — example data only | Capacities shown include 2-high stacking.
           </p>
         </div>
 
-        <div className="flex-1 overflow-auto bg-[#EEF4F8]">
-          <div className="space-y-4 p-3 sm:p-4 lg:p-5">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="flex-1 overflow-auto bg-[#F1F5F9]">
+          <div className="space-y-3 p-3 sm:p-4">
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
               {yardControlKpis.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <SectionCard key={item.label} className="p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-black uppercase leading-4 tracking-[0.1em] text-[#64748B]">
+                  <div
+                    key={item.label}
+                    className="flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 shadow-sm"
+                  >
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: `${item.accent}14`, color: item.accent }}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-[#64748B]">
                         {item.label}
                       </span>
-                      <Icon className="h-5 w-5 shrink-0" style={{ color: item.accent }} />
-                    </div>
-                    <p className="mt-3 text-3xl font-black leading-none text-[#172033]">
-                      {item.value}
-                    </p>
-                    <p className="mt-1 text-[11px] font-bold text-[#94A3B8]">{item.unit}</p>
-                  </SectionCard>
+                      <span className="text-lg font-black leading-6 text-[#0B1F3A]">
+                        {item.value}
+                      </span>{" "}
+                      <span className="text-[10px] font-bold text-[#94A3B8]">{item.unit}</span>
+                    </span>
+                  </div>
                 );
               })}
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <SectionCard className="p-5">
-                <SmallLabel>Capacity by status</SmallLabel>
-                <h2 className="mt-2 text-2xl font-black text-[#172033]">
-                  {yardCapacityTotal} spaces across the yard
-                </h2>
-                <div className="mt-4 grid items-center gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
-                  <div className="relative mx-auto h-[220px] w-full max-w-[220px]">
+            <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+              <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
+                <h2 className="text-sm font-black text-[#172033]">Capacity by Status</h2>
+                <div className="mt-3 grid items-center gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                  <div className="relative mx-auto h-[180px] w-full max-w-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -3239,140 +3302,139 @@ function LiveYardDashboard({
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <p className="text-3xl font-black text-[#172033]">{yardCapacityTotal}</p>
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">
-                        spaces
+                      <p className="text-[10px] font-bold text-[#64748B]">Total</p>
+                      <p className="text-2xl font-black leading-7 text-[#172033]">
+                        {yardCapacityTotal}
                       </p>
+                      <p className="text-[10px] font-bold text-[#64748B]">spaces</p>
                     </div>
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {capacityByStatus.map((entry) => (
-                      <li
-                        key={entry.name}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FBFE] px-3 py-2"
-                      >
-                        <span className="flex items-center gap-2 text-xs font-black text-[#172033]">
-                          <span
-                            className="h-3 w-3 shrink-0 rounded-sm"
-                            style={{ backgroundColor: entry.color }}
-                          />
+                      <li key={entry.name} className="flex items-center gap-2 text-xs">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="flex-1 truncate font-bold text-[#334155]">
                           {entry.name}
                         </span>
-                        <span className="text-sm font-black text-[#172033]">{entry.value}</span>
+                        <span className="font-black text-[#172033]">{entry.value}</span>
+                        <span className="w-10 text-right font-semibold text-[#94A3B8]">
+                          ({Math.round((entry.value / yardCapacityTotal) * 100)}%)
+                        </span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              </SectionCard>
+              </div>
 
-              <SectionCard className="overflow-hidden">
-                <div className="p-5 pb-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <SmallLabel>Yard map</SmallLabel>
-                      <h2 className="mt-2 text-2xl font-black text-[#172033]">
-                        Aerial yard overview
-                      </h2>
-                    </div>
-                    <Pill tone="blue">Click to inspect bays</Pill>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onOpenYardMap}
-                  aria-label="Open yard map detail view"
-                  className="group relative block w-full px-5 pb-5 text-left focus:outline-none"
-                >
-                  <span className="block overflow-hidden rounded-[18px] border border-[#A7BAC8] bg-[#0B1F3A]">
-                    <img
-                      src={`${import.meta.env.BASE_URL}sets-aerial-bay-layout.jpeg`}
-                      alt="Aerial SETS yard overview — click to open the detailed yard map"
-                      className="block h-auto w-full select-none transition group-hover:scale-[1.01] group-hover:opacity-95"
-                      draggable={false}
-                    />
-                  </span>
-                  <span className="pointer-events-none absolute bottom-9 left-1/2 -translate-x-1/2 rounded-2xl bg-[#0B1F3A]/90 px-4 py-2 text-xs font-black text-white opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                    Open Yard Map Detail
-                  </span>
-                </button>
-              </SectionCard>
+              <button
+                type="button"
+                onClick={onOpenYardMap}
+                aria-label="Open yard map detail view"
+                className="group relative block w-full rounded-xl border border-[#E2E8F0] bg-white p-1.5 text-left shadow-sm transition hover:border-[#1F6FEB] focus:outline-none focus:ring-2 focus:ring-[#1F6FEB]/40"
+              >
+                <span className="block overflow-hidden rounded-lg bg-[#0B1F3A]">
+                  <img
+                    src={`${import.meta.env.BASE_URL}sets-aerial-bay-layout.jpeg`}
+                    alt="Aerial SETS yard overview — click to open the detailed yard map"
+                    className="block h-auto w-full select-none transition group-hover:opacity-95"
+                    draggable={false}
+                  />
+                </span>
+                <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-lg bg-[#0B1F3A]/90 px-3 py-1.5 text-[11px] font-black text-white opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                  Open Yard Map Detail
+                </span>
+              </button>
             </div>
 
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <SmallLabel>Plot occupancy</SmallLabel>
+                <h2 className="text-sm font-black text-[#172033]">Plot Occupancy</h2>
                 <button
                   onClick={onOpenYardMap}
-                  className="text-xs font-black text-[#1F6FEB] hover:underline"
+                  className="text-[11px] font-black text-[#1F6FEB] hover:underline"
                 >
                   View on yard map
                 </button>
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="mt-2 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {plots.map((plot) => {
                   const total = plot.bays.length;
                   const occupancy = total ? Math.round((plot.booked / total) * 100) : 0;
                   return (
-                    <SectionCard key={plot.id} className="p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-black text-[#172033]">{plot.id}</p>
-                        <span className="text-xs font-black text-[#64748B]">{occupancy}%</span>
+                    <div
+                      key={plot.id}
+                      className="rounded-xl border border-[#E2E8F0] bg-white p-3 shadow-sm"
+                    >
+                      <p className="text-xs font-black text-[#172033]">{plot.id}</p>
+                      <div className="mt-2 flex items-center gap-3">
+                        <OccupancyRing percent={occupancy} />
+                        <dl className="min-w-0 flex-1 space-y-1 text-[11px] font-semibold text-[#64748B]">
+                          <div className="flex items-center justify-between gap-2">
+                            <dt className="flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-[2px] bg-[#1F6FEB]" />
+                              Total
+                            </dt>
+                            <dd className="font-black text-[#172033]">{total}</dd>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <dt className="flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-[2px] bg-[#1F6FEB]" />
+                              Filled
+                            </dt>
+                            <dd className="font-black text-[#172033]">{plot.booked}</dd>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <dt className="flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-[2px] bg-[#1F6FEB]" />
+                              Available
+                            </dt>
+                            <dd className="font-black text-[#172033]">{plot.available}</dd>
+                          </div>
+                        </dl>
                       </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
-                        <div
-                          className="h-full rounded-full bg-[#1F6FEB]"
-                          style={{ width: `${occupancy}%` }}
-                        />
-                      </div>
-                      <dl className="mt-3 space-y-1 text-[11px] font-bold text-[#64748B]">
-                        <div className="flex justify-between">
-                          <dt>Total spaces</dt>
-                          <dd className="font-black text-[#172033]">{total}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt>Filled</dt>
-                          <dd className="font-black text-[#172033]">{plot.booked}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt>Available</dt>
-                          <dd className="font-black text-[#15803D]">{plot.available}</dd>
-                        </div>
-                      </dl>
-                    </SectionCard>
+                      <p className="mt-2 text-[11px] font-black text-[#1F6FEB]">
+                        Occupancy {occupancy}%
+                      </p>
+                    </div>
                   );
                 })}
               </div>
             </div>
 
-            <SectionCard className="p-5">
-              <SmallLabel>Existing mockup screens</SmallLabel>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 shadow-sm">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wide text-[#94A3B8]">
+                  Existing mockup screens
+                </span>
                 <a
                   href={`${import.meta.env.BASE_URL}gate-lookup.html`}
-                  className="rounded-2xl bg-[#1F6FEB] px-4 py-3 text-left text-sm font-black text-white"
+                  className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-2.5 py-1.5 text-[11px] font-bold text-[#1D4ED8] hover:bg-[#DBEAFE]"
                 >
                   Gate Scan / Lookup
                 </a>
                 <button
                   onClick={onNewIntake}
-                  className="rounded-2xl bg-[#0B1F3A] px-4 py-3 text-left text-sm font-black text-white"
+                  className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#334155] hover:border-[#1F6FEB]"
                 >
                   Open intake workflow
                 </button>
                 <button
                   onClick={onOpenRecords}
-                  className="rounded-2xl border border-[#D6DEE8] bg-white px-4 py-3 text-left text-sm font-black text-[#172033]"
+                  className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#334155] hover:border-[#1F6FEB]"
                 >
                   Saved records / print library
                 </button>
                 <button
                   onClick={onOpenLegacyDashboard}
-                  className="rounded-2xl border border-[#D6DEE8] bg-white px-4 py-3 text-left text-sm font-black text-[#172033]"
+                  className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#334155] hover:border-[#1F6FEB]"
                 >
                   Existing management dashboard
                 </button>
               </div>
-            </SectionCard>
+            </div>
           </div>
         </div>
       </div>
