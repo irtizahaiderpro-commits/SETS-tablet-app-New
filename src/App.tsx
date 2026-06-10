@@ -2947,18 +2947,167 @@ function LiveYardDashboard({
                 </div>
               </div>
 
-              <AerialMap
-                plots={liveYardPlots}
-                selectedBay={selectedBay}
-                onSelectBay={setSelectedBayId}
-                editMode={editHotspots}
-                onUpdateHotspot={updateHotspot}
-                showEditorLabels={showEditorLabels}
-                showEditorFill={showEditorFill}
-                editorFillOpacity={editorFillOpacity}
-                editorVisiblePlot={editorVisiblePlot}
-                editorZoom={editorZoom}
-              />
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                <div className="min-w-0">
+                  <AerialMap
+                    plots={liveYardPlots}
+                    selectedBay={selectedBay}
+                    onSelectBay={setSelectedBayId}
+                    editMode={editHotspots}
+                    onUpdateHotspot={updateHotspot}
+                    showEditorLabels={showEditorLabels}
+                    showEditorFill={showEditorFill}
+                    editorFillOpacity={editorFillOpacity}
+                    editorVisiblePlot={editorVisiblePlot}
+                    editorZoom={editorZoom}
+                  />
+                  {editHotspots && (
+                    <HotspotEditorPanel
+                      hotspots={hotspots}
+                      selectedHotspot={selectedHotspot}
+                      exportJson={exportJson}
+                      importJson={importJson}
+                      showLabels={showEditorLabels}
+                      showFill={showEditorFill}
+                      fillOpacity={editorFillOpacity}
+                      visiblePlot={editorVisiblePlot}
+                      zoom={editorZoom}
+                      onSelect={setSelectedBayId}
+                      onToggleLabels={() => setShowEditorLabels((value) => !value)}
+                      onToggleFill={() => setShowEditorFill((value) => !value)}
+                      onOpacityChange={setEditorFillOpacity}
+                      onVisiblePlotChange={changeVisiblePlot}
+                      onZoomIn={() => setEditorZoom((value) => clampPercent(value + 0.25, 0.5, 3))}
+                      onZoomOut={() => setEditorZoom((value) => clampPercent(value - 0.25, 0.5, 3))}
+                      onResetZoom={() => setEditorZoom(1)}
+                      onNudge={nudgeSelectedHotspot}
+                      onResize={resizeSelectedHotspot}
+                      onDuplicate={duplicateSelectedHotspot}
+                      onDelete={deleteSelectedHotspot}
+                      onReset={resetHotspots}
+                      onSave={saveHotspots}
+                      onCopySelected={copySelectedHotspot}
+                      onExport={exportHotspots}
+                      onImportTextChange={setImportJson}
+                      onImport={importHotspots}
+                    />
+                  )}
+                </div>
+                <div className="border-t border-[#DCE6F0] lg:border-t-0 lg:border-l overflow-y-auto">
+                  <div
+                    className="p-5 text-white"
+                    style={{ backgroundColor: selectedStatus.color }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <SmallLabel>Selected bay</SmallLabel>
+                        <h2 className="mt-2 text-3xl font-black">
+                          {selectedBay.plot} / Bay {selectedBay.bayNumber}
+                        </h2>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">
+                          {selectedStatus.shortLabel}
+                        </span>
+                        <HotspotEditorToggle
+                          active={editHotspots}
+                          onClick={toggleHotspotEditor}
+                          className="min-w-[158px]"
+                        />
+                      </div>
+                    </div>
+                    {editHotspots && (
+                      <div className="mt-4 rounded-2xl border border-white/30 bg-white/20 px-4 py-3 text-xs font-black text-white">
+                        HOTSPOT EDITOR MODE ACTIVE
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-4 p-5">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-2xl bg-[#FFFBEB] p-3">
+                        <p className="text-[10px] font-black uppercase text-[#B45309]">
+                          Booked
+                        </p>
+                        <p className="mt-1 text-2xl font-black text-[#172033]">
+                          {selectedPlot.booked}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-[#F5F3FF] p-3">
+                        <p className="text-[10px] font-black uppercase text-[#6D28D9]">
+                          Occupied
+                        </p>
+                        <p className="mt-1 text-2xl font-black text-[#172033]">
+                          {selectedCounts.occupiedTotal}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-[#F8FAFC] p-3">
+                        <p className="text-[10px] font-black uppercase text-[#334155]">
+                          Available
+                        </p>
+                        <p className="mt-1 text-2xl font-black text-[#172033]">
+                          {selectedPlot.available}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-4">
+                      <div className="flex items-center gap-2">
+                        <Thermometer className="h-5 w-5 text-[#DC2626]" />
+                        <h3 className="text-lg font-black text-[#172033]">
+                          Tanker / booking detail
+                        </h3>
+                      </div>
+                      <dl className="mt-4 space-y-3 text-sm">
+                        {[
+                          ["Customer", selectedBay.customer || denHartoghBooking.customer],
+                          ["Tank Unit", selectedBay.tankUnit || denHartoghBooking.tankUnit],
+                          ["Job Number", selectedBay.jobNumber || denHartoghBooking.jobNumber],
+                          ["Product", selectedBay.product || denHartoghBooking.product],
+                          [
+                            "Required temperature",
+                            selectedBay.requiredTemperature || denHartoghBooking.requiredTemperature,
+                          ],
+                          [
+                            "Maximum contact temperature",
+                            selectedBay.maximumContactTemperature ||
+                              denHartoghBooking.maximumContactTemperature,
+                          ],
+                          [
+                            "Current temperature/status",
+                            selectedBay.currentTemperature || "Awaiting heat check",
+                          ],
+                          [
+                            "Ready for collection",
+                            selectedBay.readyForCollection ? "Yes" : "No",
+                          ],
+                          ["Current bay status", selectedStatus.label],
+                        ].map(([label, value]) => (
+                          <div key={label} className="grid gap-1">
+                            <dt className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">
+                              {label}
+                            </dt>
+                            <dd className="font-black leading-5 text-[#172033]">
+                              {value}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                    <div>
+                      <SmallLabel>Status examples</SmallLabel>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {statusExamples.map((status) => (
+                          <span
+                            key={status}
+                            className="rounded-full border border-[#D6DEE8] bg-white px-3 py-1 text-xs font-black text-[#172033]"
+                          >
+                            {status}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </SectionCard>
 
             <SectionCard className="p-4 sm:p-5">
@@ -2990,154 +3139,6 @@ function LiveYardDashboard({
           </div>
 
           <aside className="space-y-4">
-            {editHotspots && (
-              <HotspotEditorPanel
-                hotspots={hotspots}
-                selectedHotspot={selectedHotspot}
-                exportJson={exportJson}
-                importJson={importJson}
-                showLabels={showEditorLabels}
-                showFill={showEditorFill}
-                fillOpacity={editorFillOpacity}
-                visiblePlot={editorVisiblePlot}
-                zoom={editorZoom}
-                onSelect={setSelectedBayId}
-                onToggleLabels={() => setShowEditorLabels((value) => !value)}
-                onToggleFill={() => setShowEditorFill((value) => !value)}
-                onOpacityChange={setEditorFillOpacity}
-                onVisiblePlotChange={changeVisiblePlot}
-                onZoomIn={() => setEditorZoom((value) => clampPercent(value + 0.25, 0.5, 3))}
-                onZoomOut={() => setEditorZoom((value) => clampPercent(value - 0.25, 0.5, 3))}
-                onResetZoom={() => setEditorZoom(1)}
-                onNudge={nudgeSelectedHotspot}
-                onResize={resizeSelectedHotspot}
-                onDuplicate={duplicateSelectedHotspot}
-                onDelete={deleteSelectedHotspot}
-                onReset={resetHotspots}
-                onSave={saveHotspots}
-                onCopySelected={copySelectedHotspot}
-                onExport={exportHotspots}
-                onImportTextChange={setImportJson}
-                onImport={importHotspots}
-              />
-            )}
-            <SectionCard className="overflow-hidden">
-              <div
-                className="p-5 text-white"
-                style={{ backgroundColor: selectedStatus.color }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <SmallLabel>Selected bay</SmallLabel>
-                    <h2 className="mt-2 text-3xl font-black">
-                      {selectedBay.plot} / Bay {selectedBay.bayNumber}
-                    </h2>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-2">
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">
-                      {selectedStatus.shortLabel}
-                    </span>
-                    <HotspotEditorToggle
-                      active={editHotspots}
-                      onClick={toggleHotspotEditor}
-                      className="min-w-[158px]"
-                    />
-                  </div>
-                </div>
-                {editHotspots && (
-                  <div className="mt-4 rounded-2xl border border-white/30 bg-white/20 px-4 py-3 text-xs font-black text-white">
-                    HOTSPOT EDITOR MODE ACTIVE
-                  </div>
-                )}
-              </div>
-              <div className="space-y-4 p-5">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-2xl bg-[#FFFBEB] p-3">
-                    <p className="text-[10px] font-black uppercase text-[#B45309]">
-                      Booked
-                    </p>
-                    <p className="mt-1 text-2xl font-black text-[#172033]">
-                      {selectedPlot.booked}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-[#F5F3FF] p-3">
-                    <p className="text-[10px] font-black uppercase text-[#6D28D9]">
-                      Occupied
-                    </p>
-                    <p className="mt-1 text-2xl font-black text-[#172033]">
-                      {selectedCounts.occupiedTotal}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-[#F8FAFC] p-3">
-                    <p className="text-[10px] font-black uppercase text-[#334155]">
-                      Available
-                    </p>
-                    <p className="mt-1 text-2xl font-black text-[#172033]">
-                      {selectedPlot.available}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-[#DCE6F0] bg-[#F8FBFE] p-4">
-                  <div className="flex items-center gap-2">
-                    <Thermometer className="h-5 w-5 text-[#DC2626]" />
-                    <h3 className="text-lg font-black text-[#172033]">
-                      Tanker / booking detail
-                    </h3>
-                  </div>
-                  <dl className="mt-4 space-y-3 text-sm">
-                    {[
-                      ["Customer", selectedBay.customer || denHartoghBooking.customer],
-                      ["Tank Unit", selectedBay.tankUnit || denHartoghBooking.tankUnit],
-                      ["Job Number", selectedBay.jobNumber || denHartoghBooking.jobNumber],
-                      ["Product", selectedBay.product || denHartoghBooking.product],
-                      [
-                        "Required temperature",
-                        selectedBay.requiredTemperature || denHartoghBooking.requiredTemperature,
-                      ],
-                      [
-                        "Maximum contact temperature",
-                        selectedBay.maximumContactTemperature ||
-                          denHartoghBooking.maximumContactTemperature,
-                      ],
-                      [
-                        "Current temperature/status",
-                        selectedBay.currentTemperature || "Awaiting heat check",
-                      ],
-                      [
-                        "Ready for collection",
-                        selectedBay.readyForCollection ? "Yes" : "No",
-                      ],
-                      ["Current bay status", selectedStatus.label],
-                    ].map(([label, value]) => (
-                      <div key={label} className="grid gap-1">
-                        <dt className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">
-                          {label}
-                        </dt>
-                        <dd className="font-black leading-5 text-[#172033]">
-                          {value}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-
-                <div>
-                  <SmallLabel>Status examples</SmallLabel>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {statusExamples.map((status) => (
-                      <span
-                        key={status}
-                        className="rounded-full border border-[#D6DEE8] bg-white px-3 py-1 text-xs font-black text-[#172033]"
-                      >
-                        {status}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-
             <SectionCard className="p-5">
               <SmallLabel>Existing mockup screens</SmallLabel>
               <div className="mt-4 grid gap-2">
