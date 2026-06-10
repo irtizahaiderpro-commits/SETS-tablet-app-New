@@ -3090,7 +3090,7 @@ function OccupancyRing({ percent }: { percent: number }) {
   return (
     <svg
       viewBox="0 0 64 64"
-      className="h-14 w-14 shrink-0"
+      className="h-12 w-12 shrink-0"
       role="img"
       aria-label={`Occupancy ${percent}%`}
     >
@@ -3241,26 +3241,23 @@ function LiveYardDashboard({
               <Bell className="h-4 w-4" />
             </button>
           </div>
-          <p className="w-full text-[10px] font-semibold text-[#64748B] xl:hidden">
-            Demo office view — example data only | Capacities shown include 2-high stacking.
-          </p>
         </div>
 
         <div className="flex-1 overflow-auto bg-[#F1F5F9]">
-          <div className="space-y-3 p-3 sm:p-4">
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <div className="space-y-2 p-2 sm:p-3">
+            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
               {yardControlKpis.map((item) => {
                 const Icon = item.icon;
                 return (
                   <div
                     key={item.label}
-                    className="flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 shadow-sm"
+                    className="flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 shadow-sm"
                   >
                     <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                       style={{ backgroundColor: `${item.accent}14`, color: item.accent }}
                     >
-                      <Icon className="h-[18px] w-[18px]" />
+                      <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-[#64748B]">
@@ -3276,11 +3273,11 @@ function LiveYardDashboard({
               })}
             </div>
 
-            <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-              <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
+            <div className="grid items-start gap-2 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+              <div className="rounded-xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
                 <h2 className="text-sm font-black text-[#172033]">Capacity by Status</h2>
-                <div className="mt-3 grid items-center gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
-                  <div className="relative mx-auto h-[180px] w-full max-w-[180px]">
+                <div className="mt-2 grid items-center gap-2 sm:grid-cols-[160px_minmax(0,1fr)]">
+                  <div className="relative mx-auto h-[160px] w-full max-w-[160px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -3339,7 +3336,7 @@ function LiveYardDashboard({
                   <img
                     src={`${import.meta.env.BASE_URL}sets-aerial-bay-layout.jpeg`}
                     alt="Aerial SETS yard overview — click to open the detailed yard map"
-                    className="block h-auto w-full select-none transition group-hover:opacity-95"
+                    className="block w-full select-none transition group-hover:opacity-95 max-h-[210px] object-cover object-center"
                     draggable={false}
                   />
                 </span>
@@ -3359,17 +3356,17 @@ function LiveYardDashboard({
                   View on yard map
                 </button>
               </div>
-              <div className="mt-2 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="mt-1.5 grid gap-2 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {plots.map((plot) => {
                   const total = plot.bays.length;
                   const occupancy = total ? Math.round((plot.booked / total) * 100) : 0;
                   return (
                     <div
                       key={plot.id}
-                      className="rounded-xl border border-[#E2E8F0] bg-white p-3 shadow-sm"
+                      className="rounded-xl border border-[#E2E8F0] bg-white p-2.5 shadow-sm"
                     >
                       <p className="text-xs font-black text-[#172033]">{plot.id}</p>
-                      <div className="mt-2 flex items-center gap-3">
+                      <div className="mt-1.5 flex items-center gap-2.5">
                         <OccupancyRing percent={occupancy} />
                         <dl className="min-w-0 flex-1 space-y-1 text-[11px] font-semibold text-[#64748B]">
                           <div className="flex items-center justify-between gap-2">
@@ -3395,7 +3392,7 @@ function LiveYardDashboard({
                           </div>
                         </dl>
                       </div>
-                      <p className="mt-2 text-[11px] font-black text-[#1F6FEB]">
+                      <p className="mt-1 text-[11px] font-black text-[#1F6FEB]">
                         Occupancy {occupancy}%
                       </p>
                     </div>
@@ -3404,7 +3401,7 @@ function LiveYardDashboard({
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 shadow-sm">
+            <div className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 shadow-sm">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className="text-[10px] font-black uppercase tracking-wide text-[#94A3B8]">
                   Existing mockup screens
